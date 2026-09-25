@@ -1,0 +1,112 @@
+{
+  "source_note": "MVP illustrative figures — anchored to FAO crop-water-requirement ranges and Indonesian BPS/Kementan price orders of magnitude, but NOT independently verified. Do not treat as authoritative agronomic or market data.",
+  "crops": {
+    "rice": {
+      "name": "Rice",
+      "name_id": "Padi",
+      "water_requirement_mm": 1200,
+      "cycle_days": 115,
+      "ph_min": 5,
+      "ph_max": 7.5,
+      "soc_preference": "medium",
+      "nitrogen_fixing": false,
+      "drought_sensitivity": 0.85,
+      "heat_tolerance": 0.5,
+      "base_yield_t_ha": 5.2,
+      "farm_gate_price_idr_per_kg": 6000,
+      "variable_cost_idr_per_ha": 12000000,
+      "capital_requirement_idr_per_ha": 10000000,
+      "labour_days_per_ha": 45,
+      "market_price_volatility": 0.2,
+      "calendar_track": [
+        "rice_wet_season",
+        "rice_dry_season"
+      ]
+    },
+    "maize": {
+      "name": "Maize",
+      "name_id": "Jagung",
+      "water_requirement_mm": 600,
+      "cycle_days": 100,
+      "ph_min": 5.5,
+      "ph_max": 7.5,
+      "soc_preference": "high",
+      "nitrogen_fixing": false,
+      "drought_sensitivity": 0.55,
+      "heat_tolerance": 0.6,
+      "base_yield_t_ha": 5,
+      "farm_gate_price_idr_per_kg": 5000,
+      "variable_cost_idr_per_ha": 9000000,
+      "capital_requirement_idr_per_ha": 7500000,
+      "labour_days_per_ha": 30,
+      "market_price_volatility": 0.35,
+      "calendar_track": [
+        "maize_rainy_season",
+        "maize_dry_season"
+      ]
+    },
+    "soybean": {
+      "name": "Soybean",
+      "name_id": "Kedelai",
+      "water_requirement_mm": 450,
+      "cycle_days": 80,
+      "ph_min": 6,
+      "ph_max": 7,
+      "soc_preference": "medium",
+      "nitrogen_fixing": true,
+      "drought_sensitivity": 0.35,
+      "heat_tolerance": 0.65,
+      "base_yield_t_ha": 1.5,
+      "farm_gate_price_idr_per_kg": 10000,
+      "variable_cost_idr_per_ha": 7500000,
+      "capital_requirement_idr_per_ha": 6000000,
+      "labour_days_per_ha": 25,
+      "market_price_volatility": 0.45,
+      "calendar_track": [
+        "maize_rainy_season"
+      ]
+    },
+    "mung_bean": {
+      "name": "Mung Bean",
+      "name_id": "Kacang Hijau",
+      "water_requirement_mm": 300,
+      "cycle_days": 60,
+      "ph_min": 5.5,
+      "ph_max": 7.5,
+      "soc_preference": "low",
+      "nitrogen_fixing": true,
+      "drought_sensitivity": 0.25,
+      "heat_tolerance": 0.75,
+      "base_yield_t_ha": 1.2,
+      "farm_gate_price_idr_per_kg": 22000,
+      "variable_cost_idr_per_ha": 5500000,
+      "capital_requirement_idr_per_ha": 4500000,
+      "labour_days_per_ha": 20,
+      "market_price_volatility": 0.4,
+      "calendar_track": [
+        "maize_dry_season"
+      ]
+    },
+    "peanut": {
+      "name": "Peanut",
+      "name_id": "Kacang Tanah",
+      "water_requirement_mm": 500,
+      "cycle_days": 100,
+      "ph_min": 5.5,
+      "ph_max": 7,
+      "soc_preference": "medium",
+      "nitrogen_fixing": true,
+      "drought_sensitivity": 0.4,
+      "heat_tolerance": 0.7,
+      "base_yield_t_ha": 1.3,
+      "farm_gate_price_idr_per_kg": 15000,
+      "variable_cost_idr_per_ha": 8000000,
+      "capital_requirement_idr_per_ha": 6500000,
+      "labour_days_per_ha": 28,
+      "market_price_volatility": 0.4,
+      "calendar_track": [
+        "maize_rainy_season"
+      ]
+    }
+  }
+}

@@ -1,0 +1,43 @@
+// data/calendar.js
+//
+// Indonesia crop calendar — 24 half-month rows across the year, four tracks:
+//   rice_wet_season, rice_dry_season, maize_rainy_season, maize_dry_season
+//
+// Phase values (exact strings, used by the engine for gate checks and templated
+// prose — do not alter spelling/casing):
+//   "Planting-Early Veg", "Vegetative-Repro", "Ripening-Harvest", "Harvest", "Out of Season"
+//
+// Source: https://harvest2market.nasaharvest.org/idn
+window.FS_DATA = window.FS_DATA || {};
+window.FS_DATA.calendar = {
+  source: "NASA Harvest — Harvest2Market",
+  source_url: "https://harvest2market.nasaharvest.org/idn",
+  country: "Indonesia",
+  tracks: ["rice_wet_season", "rice_dry_season", "maize_rainy_season", "maize_dry_season"],
+  rows: [
+    { period: "Jan 1",  rice_wet_season: "Planting-Early Veg", rice_dry_season: "Out of Season",      maize_rainy_season: "Vegetative-Repro",   maize_dry_season: "Out of Season" },
+    { period: "Jan 15", rice_wet_season: "Planting-Early Veg", rice_dry_season: "Out of Season",      maize_rainy_season: "Vegetative-Repro",   maize_dry_season: "Out of Season" },
+    { period: "Feb 1",  rice_wet_season: "Vegetative-Repro",   rice_dry_season: "Out of Season",      maize_rainy_season: "Vegetative-Repro",   maize_dry_season: "Out of Season" },
+    { period: "Feb 15", rice_wet_season: "Vegetative-Repro",   rice_dry_season: "Out of Season",      maize_rainy_season: "Ripening-Harvest",   maize_dry_season: "Out of Season" },
+    { period: "Mar 1",  rice_wet_season: "Vegetative-Repro",   rice_dry_season: "Out of Season",      maize_rainy_season: "Ripening-Harvest",   maize_dry_season: "Out of Season" },
+    { period: "Mar 15", rice_wet_season: "Vegetative-Repro",   rice_dry_season: "Out of Season",      maize_rainy_season: "Harvest",            maize_dry_season: "Out of Season" },
+    { period: "Apr 1",  rice_wet_season: "Ripening-Harvest",   rice_dry_season: "Planting-Early Veg", maize_rainy_season: "Out of Season",      maize_dry_season: "Planting-Early Veg" },
+    { period: "Apr 15", rice_wet_season: "Ripening-Harvest",   rice_dry_season: "Planting-Early Veg", maize_rainy_season: "Out of Season",      maize_dry_season: "Planting-Early Veg" },
+    { period: "May 1",  rice_wet_season: "Ripening-Harvest",   rice_dry_season: "Planting-Early Veg", maize_rainy_season: "Out of Season",      maize_dry_season: "Planting-Early Veg" },
+    { period: "May 15", rice_wet_season: "Ripening-Harvest",   rice_dry_season: "Planting-Early Veg", maize_rainy_season: "Out of Season",      maize_dry_season: "Planting-Early Veg" },
+    { period: "Jun 1",  rice_wet_season: "Harvest",            rice_dry_season: "Planting-Early Veg", maize_rainy_season: "Out of Season",      maize_dry_season: "Vegetative-Repro" },
+    { period: "Jun 15", rice_wet_season: "Harvest",            rice_dry_season: "Planting-Early Veg", maize_rainy_season: "Out of Season",      maize_dry_season: "Vegetative-Repro" },
+    { period: "Jul 1",  rice_wet_season: "Out of Season",      rice_dry_season: "Vegetative-Repro",   maize_rainy_season: "Out of Season",      maize_dry_season: "Vegetative-Repro" },
+    { period: "Jul 15", rice_wet_season: "Out of Season",      rice_dry_season: "Vegetative-Repro",   maize_rainy_season: "Out of Season",      maize_dry_season: "Vegetative-Repro" },
+    { period: "Aug 1",  rice_wet_season: "Out of Season",      rice_dry_season: "Vegetative-Repro",   maize_rainy_season: "Out of Season",      maize_dry_season: "Ripening-Harvest" },
+    { period: "Aug 15", rice_wet_season: "Out of Season",      rice_dry_season: "Vegetative-Repro",   maize_rainy_season: "Out of Season",      maize_dry_season: "Ripening-Harvest" },
+    { period: "Sep 1",  rice_wet_season: "Out of Season",      rice_dry_season: "Vegetative-Repro",   maize_rainy_season: "Out of Season",      maize_dry_season: "Ripening-Harvest" },
+    { period: "Sep 15", rice_wet_season: "Out of Season",      rice_dry_season: "Vegetative-Repro",   maize_rainy_season: "Out of Season",      maize_dry_season: "Harvest" },
+    { period: "Oct 1",  rice_wet_season: "Planting-Early Veg", rice_dry_season: "Ripening-Harvest",   maize_rainy_season: "Planting-Early Veg", maize_dry_season: "Out of Season" },
+    { period: "Oct 15", rice_wet_season: "Planting-Early Veg", rice_dry_season: "Ripening-Harvest",   maize_rainy_season: "Planting-Early Veg", maize_dry_season: "Out of Season" },
+    { period: "Nov 1",  rice_wet_season: "Planting-Early Veg", rice_dry_season: "Harvest",            maize_rainy_season: "Planting-Early Veg", maize_dry_season: "Out of Season" },
+    { period: "Nov 15", rice_wet_season: "Planting-Early Veg", rice_dry_season: "Harvest",            maize_rainy_season: "Planting-Early Veg", maize_dry_season: "Out of Season" },
+    { period: "Dec 1",  rice_wet_season: "Planting-Early Veg", rice_dry_season: "Out of Season",      maize_rainy_season: "Planting-Early Veg", maize_dry_season: "Out of Season" },
+    { period: "Dec 15", rice_wet_season: "Planting-Early Veg", rice_dry_season: "Out of Season",      maize_rainy_season: "Vegetative-Repro",   maize_dry_season: "Out of Season" }
+  ]
+};

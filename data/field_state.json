@@ -1,0 +1,41 @@
+{
+  "request_metadata": {
+    "field_id": "poly_idn_jt_001",
+    "location": "Jawa Timur, Indonesia",
+    "analysis_date": "2026-09-22",
+    "centroid": {
+      "lat": -7.75,
+      "lon": 112.6
+    }
+  },
+  "farmer_input": {
+    "previous_crop": "Rice",
+    "irrigation_type": "Rainfed",
+    "priorities": [
+      "Save Water",
+      "Reduce Climate Risk"
+    ],
+    "area_ha": 1,
+    "capital_available_idr_per_ha": 15000000
+  },
+  "soil_chemistry": {
+    "source": "Local Soil DB (Static - Extracted from SoilGrids GeoTIFF)",
+    "pH": 6.2,
+    "organic_carbon": "366 dg/kg (3.66% - High/Fertile)",
+    "organic_carbon_pct": 3.66,
+    "soc_level": "high",
+    "water_retention": "Medium"
+  },
+  "live_observation": {
+    "source": "Copernicus Sentinel-2 L2A",
+    "ndvi_current": 0.42,
+    "ndwi_current": -0.15,
+    "vegetation_status": "Declining / Drying"
+  },
+  "agrometeorological_context": {
+    "source": "NASA POWER & GEOGLAM",
+    "precipitation_outlook": "Below-average",
+    "temperature_outlook": "Above-average",
+    "current_season_calendar": "Dry-season (Harvesting phase for Rice)"
+  }
+}

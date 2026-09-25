@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Problem definition and solution design for FieldShift — improving land-use efficiency for smallholder farmers using NASA data, local data, LLM, and IoT." />
+  <title>FieldShift — Problem &amp; Solution</title>
+  <link rel="stylesheet" href="assets/css/fieldshift.css" />
+</head>
+<body>
+  <div class="topbar">
+    <div class="page topbar-inner">
+      <a class="brand" href="index.html" style="text-decoration:none;color:inherit">
+        <div class="brand-mark">F</div><span>FieldShift</span>
+      </a>
+      <nav aria-label="Main navigation">
+        <a href="index.html">Home</a>
+        <a href="problem.html" aria-current="page">Problem &amp; Solution</a>
+        <a href="app.html">Prototype</a>
+        <a href="iot-3d.html">IoT 3D</a>
+        <a href="specs.html">Specs</a>
+      </nav>
+      <button class="print-button" onclick="window.print()">Print / Save PDF</button>
+    </div>
+  </div>
+
+  <div class="page" style="padding-top:14px">
+    <nav aria-label="In-page sections" style="display:flex;flex-wrap:wrap;gap:14px">
+      <a href="#problem">Problem</a>
+      <a href="#solution">Solution</a>
+      <a href="#data">Data</a>
+      <a href="#example">Example</a>
+      <a href="#iot">IoT</a>
+      <a href="#support">Gov/NGO</a>
+      <a href="#mvp">MVP</a>
+      <a href="#sources">Sources</a>
+    </nav>
+  </div>
+
+  <main>
+    <header class="hero page">
+      <span class="eyebrow">NASA Space Apps Challenge 2026 · Concept Draft</span>
+      <h1>Make every square meter count.</h1>
+      <p>
+        A decision and automation system that helps smallholder farmers choose commodities,
+        manage water, and use inputs more efficiently, based on NASA data, soil conditions,
+        local market data, and IoT sensors.
+      </p>
+
+      <div class="hero-grid">
+        <div class="card">
+          <h2 style="font-size:30px">Primary focus</h2>
+          <p style="color:var(--muted); margin-bottom:16px">
+            Not expanding land, and not fixing the entire supply chain. FieldShift optimizes the
+            decisions a farmer can still control: <strong>what to plant, when to plant it,
+            how much water/input to use, and when to act.</strong>
+          </p>
+          <span class="tag">Crop selection</span>
+          <span class="tag">Crop rotation</span>
+          <span class="tag">Net margin / ha</span>
+          <span class="tag">Water efficiency</span>
+          <span class="tag">Explainable recommendation</span>
+          <span class="tag">IoT action loop</span>
+        </div>
+        <div class="card metric-card">
+          <div class="label">North-star metric</div>
+          <div class="big">Risk-adjusted net margin per hectare</div>
+          <p>Not simply chasing the highest yield. The system looks for the best net income within acceptable water, climate, soil, and market risk limits.</p>
+        </div>
+      </div>
+    </header>
+
+    <section id="problem">
+      <div class="page">
+        <div class="section-head">
+          <div class="section-kicker">01 · Problem definition</div>
+          <h2>The problem isn't just small landholdings — it's the per-hectare decisions that are still not optimized.</h2>
+        </div>
+
+        <div class="problem-statement">
+          Smallholder farmers have very little room for error, yet lack an integrated system that
+          turns climate, soil, crop, market, and real-time field data into commodity choices and
+          cultivation actions that measurably maximize net income per hectare.
+          <small>
+            Pitch-ready English: "Smallholder farmers with limited land lack an integrated, field-specific
+            system that converts Earth observation, soil, market, farmer, and real-time sensor data into
+            crop and resource-management decisions that maximize risk-adjusted net income per hectare."
+          </small>
+        </div>
+
+        <div class="callout">
+          <strong>An important course correction:</strong> the right target is not "maximum yield". A crop
+          with a high tonnage yield does not necessarily deliver the highest margin once seed, fertilizer,
+          water, labor, crop-failure risk, and selling price are all accounted for.
+        </div>
+
+        <div class="table-wrap" style="margin-top:18px">
+          <table>
+            <thead>
+              <tr>
+                <th>Symptom at farmer level</th>
+                <th>Decision problem</th>
+                <th>Impact on small landholdings</th>
+                <th>What the system can control</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Choosing crops out of habit</strong></td>
+                <td>Soil suitability, water, climate, calendar, cost, and price are not evaluated together.</td>
+                <td>One wrong decision can wipe out most of a season's income.</td>
+                <td>Compare several commodity/rotation scenarios transparently.</td>
+              </tr>
+              <tr>
+                <td><strong>Watering on a fixed schedule</strong></td>
+                <td>Does not follow actual moisture levels, crop stage, or the chance of rain.</td>
+                <td>Water, pump energy, and labor are wasted.</td>
+                <td>Moisture sensors + irrigation rules + pump/valve control.</td>
+              </tr>
+              <tr>
+                <td><strong>Data exists but is siloed</strong></td>
+                <td>Satellite imagery, weather, soil, cost, and price never become one unified "field state".</td>
+                <td>Farmers receive information, but not an operational decision.</td>
+                <td>Data integration and per-field recommendations.</td>
+              </tr>
+              <tr>
+                <td><strong>Recommendations stop at information</strong></td>
+                <td>No tool exists to execute and monitor the action.</td>
+                <td>Low adoption and results that are hard to evaluate.</td>
+                <td>IoT, alerts, action logs, and end-of-season feedback.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="two-col" style="margin-top:18px">
+          <div class="mini-card scope-card scope-in">
+            <h3>In scope</h3>
+            <ul>
+              <li>Selecting feasible commodities and rotations.</li>
+              <li>Calculating margin, water needs, and risk.</li>
+              <li>Planting and irrigation schedules, plus action alerts.</li>
+              <li>Monitoring vegetation health and water use.</li>
+              <li>Mapping assistance needs based on aggregated data.</li>
+            </ul>
+          </div>
+          <div class="mini-card scope-card scope-out">
+            <h3>Out of scope</h3>
+            <ul>
+              <li>Land redistribution or expanding land ownership.</li>
+              <li>Law enforcement or subsidy-leakage policing.</li>
+              <li>Eliminating middlemen or regulating market prices.</li>
+              <li>Replacing agronomists, extension workers, or farmer decisions.</li>
+              <li>Guaranteeing profit or harvest yield.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="solution">
+      <div class="page">
+        <div class="section-head">
+          <div class="section-kicker">02 · Proposed solution</div>
+          <h2>FieldShift: from data → decision → action → learning.</h2>
+          <p>
+            The platform combines Earth observation data, field profile, local economics, and field sensors.
+            A scenario engine computes the options; an LLM explains the results in plain language; IoT helps carry out the action.
+          </p>
+        </div>
+
+        <div class="flow" aria-label="FieldShift solution flow">
+          <div class="flow-step"><b>1. Farmer &amp; Field</b><span>Field polygon, previous crops, irrigation, capital, risk preference.</span></div>
+          <div class="flow-step"><b>2. NASA &amp; Local Data</b><span>Vegetation, rainfall, historical climate, soil, calendar, cost, and local prices.</span></div>
+          <div class="flow-step"><b>3. IoT Ground Truth</b><span>Soil moisture, microclimate, water flow, pump status.</span></div>
+          <div class="flow-step"><b>4. Scenario Engine</b><span>Tests agronomic feasibility and rotation for each commodity.</span></div>
+          <div class="flow-step"><b>5. Margin &amp; Risk</b><span>Computes net income, water needs, and risk penalties.</span></div>
+          <div class="flow-step llm"><b>6. LLM Explainability</b><span>Explains reasons, trade-offs, and next steps; not the primary scoring driver.</span></div>
+          <div class="flow-step"><b>7. Action Loop</b><span>Alerts, irrigation control, outcome monitoring, and recommendation updates.</span></div>
+        </div>
+
+        <div class="callout danger">
+          <strong>Don't feed raw data straight to an LLM to decide the crop.</strong>
+          Use rules/MCDA or a measurable model for agronomic and economic scoring. The LLM is used as a
+          conversational and explanatory layer so results stay consistent, auditable, and independent of
+          generative guesswork.
+        </div>
+
+        <div class="formula">
+          Expected Net Margin / ha = (Predicted Yield × Farm-gate Price) − Total Variable Cost
+          <small>
+            Then adjusted for drought risk, price volatility, data uncertainty, soil impact, and the
+            farmer's capital constraints.
+          </small>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Module</th>
+                <th>Function</th>
+                <th>Output for the farmer</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Field Profiler</strong></td>
+                <td>Builds a single field profile from satellite, soil, weather, IoT, and farmer input.</td>
+                <td>Water status, vegetation condition, soil health, planting calendar, and data quality.</td>
+              </tr>
+              <tr>
+                <td><strong>Crop &amp; Rotation Engine</strong></td>
+                <td>Filters out unsuitable commodities, then scores the feasible options.</td>
+                <td>Top 3 options with reasoning, trade-offs, and confidence.</td>
+              </tr>
+              <tr>
+                <td><strong>Economic Engine</strong></td>
+                <td>Calculates income, cost, price sensitivity, and capital needs.</td>
+                <td>Net margin range per hectare and the break-even price point.</td>
+              </tr>
+              <tr>
+                <td><strong>Action Planner</strong></td>
+                <td>Turns the recommendation into an operational schedule.</td>
+                <td>Planting window, irrigation targets, milestones, and risk alerts.</td>
+              </tr>
+              <tr>
+                <td><strong>LLM Assistant</strong></td>
+                <td>Translates engine output and answers questions grounded in already-computed data.</td>
+                <td>Plain-language explanation: "why", "what's the risk", and "what to do next".</td>
+              </tr>
+              <tr>
+                <td><strong>Learning Loop</strong></td>
+                <td>Compares predictions with actual water use, growth, yield, and margin.</td>
+                <td>Better-calibrated recommendations for the next season.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="data">
+      <div class="page">
+        <div class="section-head">
+          <div class="section-kicker">03 · Data design</div>
+          <h2>NASA provides broad context; IoT provides ground truth on the plot.</h2>
+          <p>
+            Satellite data resolution is not always enough for small fields. That's why NASA data is used
+            for trends and context, while field sensors provide local validation and trigger action. The
+            posture is <strong>NASA-first</strong>: NASA sources anchor the data layer, and any non-NASA
+            source is labeled explicitly.
+          </p>
+        </div>
+
+        <div class="architecture">
+          <div class="layer">
+            <div class="layer-name">Earth observation</div>
+            <div class="layer-body">
+              <span class="source-chip">NASA HLS</span> 30 m vegetation index (NDVI/NDWI), the primary vegetation-trend signal, and land-condition change.
+              <span class="source-chip">Sentinel-2 L2A</span> 10 m detail layer that sharpens HLS where higher resolution is available.
+              <span class="source-chip">GPM IMERG</span> rainfall and regional dry-spell detection.
+              <span class="source-chip">SMAP</span> regional soil-moisture context.
+              <span class="source-chip">NASA POWER</span> daily climate and meteorology baseline — this replaces the Open-Meteo-style source used in the earlier draft.
+              <span class="source-chip">GEOGLAM Crop Monitor</span> regional crop-condition outlook.
+            </div>
+          </div>
+          <div class="layer">
+            <div class="layer-name">Local agronomy</div>
+            <div class="layer-body">
+              pH, SOC, soil texture, drainage, irrigation type, previous crops, local calendar, and agronomist recommendations.
+              <span class="source-chip non-nasa">SoilGrids — non-NASA</span> ISRIC's global soil-property grids, used to fill soil-attribute gaps and explicitly labeled as a non-NASA source.
+            </div>
+          </div>
+          <div class="layer">
+            <div class="layer-name">Farm economics</div>
+            <div class="layer-body">
+              farm-gate prices, seed, fertilizer, labor, water/energy, and post-harvest costs, capital, and available buyers.
+            </div>
+          </div>
+          <div class="layer">
+            <div class="layer-name">IoT telemetry</div>
+            <div class="layer-body">
+              soil moisture per depth, air temperature/humidity, water flow, pump/valve status, and an optional rain gauge.
+            </div>
+          </div>
+          <div class="layer">
+            <div class="layer-name">Farmer constraints</div>
+            <div class="layer-body">
+              income target, risk tolerance, capital, labor, crop preference, seed access, and limits on switching commodities.
+            </div>
+          </div>
+        </div>
+
+        <div class="callout info">
+          <strong>Design implication:</strong> HLS helps read vegetation patterns at a 30-meter scale, while
+          IMERG and most SMAP products are better suited as broader-area context. The system must never
+          present regional data as a "direct measurement" of a single plot; IoT and farmer observations close
+          that gap.
+        </div>
+      </div>
+    </section>
+
+    <section id="example">
+      <div class="page">
+        <div class="section-head">
+          <div class="section-kicker">04 · Example output</div>
+          <h2>A recommendation must take the shape of an actionable decision.</h2>
+          <p>The example below only illustrates the output structure — it is not a real agronomic recommendation for any specific location.</p>
+        </div>
+
+        <div class="example">
+          <div class="example-winner">
+            <div style="font-size:13px; text-transform:uppercase; letter-spacing:.09em; opacity:.8; font-weight:800">Illustrative top option</div>
+            <div class="crop">Corn</div>
+            <p>Selected when the combination of soil, water need, calendar, cost, and local price produces a measurably better margin than the other options.</p>
+            <div class="score-row"><span>Margin / ha</span><strong>Calculated range</strong></div>
+            <div class="score-row"><span>Water demand</span><strong>Medium</strong></div>
+            <div class="score-row"><span>Climate risk</span><strong>Medium</strong></div>
+            <div class="score-row"><span>Confidence</span><strong>Based on data quality</strong></div>
+          </div>
+          <div class="card">
+            <h3>What appears on the farmer's screen</h3>
+            <div class="table-wrap" style="box-shadow:none">
+              <table style="min-width:620px">
+                <tbody>
+                  <tr><td><strong>Why was it chosen?</strong></td><td>Soil and season are feasible; water need fits capacity; projected margin is better at current local prices.</td></tr>
+                  <tr><td><strong>Main risks</strong></td><td>Early-stage dry spell, price shifts, and input capital requirements.</td></tr>
+                  <tr><td><strong>Alternative</strong></td><td>Soybean, if water availability drops or no corn buyer is available.</td></tr>
+                  <tr><td><strong>Action plan</strong></td><td>Planting window, soil-moisture target, inspection schedule, and per-phase irrigation limits.</td></tr>
+                  <tr><td><strong>Assistance needed</strong></td><td>Seed, soil testing, loaned sensors, capital access, or buyer connections — shown as a gap, not promised by the system.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="iot">
+      <div class="page">
+        <div class="section-head">
+          <div class="section-kicker">05 · IoT solution</div>
+          <h2>Not just giving advice — helping to carry it out.</h2>
+        </div>
+
+        <div class="iot-grid">
+          <div class="card">
+            <h3>Minimum viable field kit</h3>
+            <div class="sensor-list">
+              <div class="sensor-row"><div class="sensor-icon">💧</div><div><b>Soil-moisture sensors</b><span>Two depths to read the root zone, not just the surface.</span></div></div>
+              <div class="sensor-row"><div class="sensor-icon">🌡️</div><div><b>Air temperature &amp; humidity</b><span>Measures the local microclimate and heat stress.</span></div></div>
+              <div class="sensor-row"><div class="sensor-icon">🚰</div><div><b>Water-flow meter</b><span>Measures actual volume and detects abnormal flow.</span></div></div>
+              <div class="sensor-row"><div class="sensor-icon">⚙️</div><div><b>Pump relay / solenoid valve</b><span>Runs irrigation with manual override and a time limit.</span></div></div>
+              <div class="sensor-row"><div class="sensor-icon">📡</div><div><b>Gateway</b><span>LoRa, GSM, or Wi-Fi depending on village conditions; still stores data when the connection drops.</span></div></div>
+            </div>
+            <div class="callout" style="margin-bottom:0">
+              pH, SOC, and soil texture only need periodic measurement for the MVP; they don't need to be forced into real-time sensors.
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>Closed-loop irrigation</h3>
+            <div class="flow" style="grid-template-columns:repeat(4,minmax(140px,1fr)); margin-bottom:10px">
+              <div class="flow-step"><b>Sense</b><span>Read moisture, temperature, rainfall, and flow.</span></div>
+              <div class="flow-step"><b>Decide</b><span>Compare against crop-stage thresholds and the forecast.</span></div>
+              <div class="flow-step"><b>Act</b><span>Turn on the pump/valve until target or safety limit is reached.</span></div>
+              <div class="flow-step"><b>Verify</b><span>Confirm flow occurred and moisture responded.</span></div>
+            </div>
+
+            <h3>Simple rule example</h3>
+            <div class="mini-card" style="background:#f8fbf6">
+              <code style="white-space:normal; font-size:14px">
+                IF soil_moisture &lt; crop_threshold<br>
+                AND rain_probability_next_6h is low<br>
+                AND daily_water_limit not exceeded<br>
+                THEN open valve for N minutes<br>
+                ELSE send alert / wait
+              </code>
+            </div>
+
+            <h3 style="margin-top:20px">Safety guardrails</h3>
+            <span class="tag warn">Manual override</span>
+            <span class="tag warn">Max runtime</span>
+            <span class="tag warn">No-flow alert</span>
+            <span class="tag warn">Sensor-quality flag</span>
+            <span class="tag warn">Offline local rule</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="support">
+      <div class="page">
+        <div class="section-head">
+          <div class="section-kicker">06 · Side branch</div>
+          <h2>Government/NGO support helps close the adoption gap — it does not take over the decision.</h2>
+          <p>This feature is supportive in nature. Individual data is shared only with consent and should preferably be aggregated/anonymized.</p>
+        </div>
+
+        <div class="branch">
+          <div class="card">
+            <span class="tag">Core farmer product</span>
+            <h3>Field-level decision &amp; action</h3>
+            <ul class="plain-list">
+              <li>Commodity/rotation choice and margin.</li>
+              <li>Irrigation and input plan.</li>
+              <li>IoT monitoring and alerts.</li>
+              <li>Explainable recommendations.</li>
+            </ul>
+          </div>
+          <div class="branch-arrow">→</div>
+          <div class="card" style="border-color:#c9dfec">
+            <span class="tag side">Optional support layer</span>
+            <h3>Needs &amp; intervention map</h3>
+            <ul class="plain-list">
+              <li>Locations that need soil testing or loaned sensors.</li>
+              <li>Seed, training, irrigation, or capital needs based on aggregation.</li>
+              <li>List of villages with buyer/off-taker gaps.</li>
+              <li>Monitoring aid usage and pilot outcomes.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="three-col" style="margin-top:18px">
+          <div class="mini-card"><div class="icon">🧪</div><h3>Soil-testing support</h3><p>Mobile lab, soil-test vouchers, and standardized results to strengthen model inputs.</p></div>
+          <div class="mini-card"><div class="icon">🛰️</div><h3>Sensor-as-a-service</h3><p>Loan or co-financing programs to reduce the per-farmer cost of hardware.</p></div>
+          <div class="mini-card"><div class="icon">🧑‍🌾</div><h3>Extension dashboard</h3><p>Extension workers validate recommendations, prioritize visits, and log field outcomes.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="mvp">
+      <div class="page">
+        <div class="section-head">
+          <div class="section-kicker">07 · MVP plan</div>
+          <h2>Build small, but closed-loop.</h2>
+          <p>It's more convincing to demo one decision all the way through to an IoT action than to display lots of data with no proof of use.</p>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Area</th><th>MVP scope</th><th>Not needed yet</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><strong>Location</strong></td><td>One village or one farming area with 10–20 field polygons.</td><td>National scale.</td></tr>
+              <tr><td><strong>Commodities</strong></td><td>Three realistic options, e.g. rice, corn, and soybean.</td><td>Dozens of crops at once.</td></tr>
+              <tr><td><strong>NASA data</strong></td><td>HLS + GPM; POWER/SMAP as additional context.</td><td>Forcing every NASA portal to integrate live.</td></tr>
+              <tr><td><strong>Soil</strong></td><td>Static data per location + one testing/manual validation pass.</td><td>Full real-time soil chemistry sensors.</td></tr>
+              <tr><td><strong>IoT</strong></td><td>2–3 pilot plots with soil moisture, flow meter, and pump/valve.</td><td>Hardware for every farmer.</td></tr>
+              <tr><td><strong>Decision engine</strong></td><td>Transparent scoring/MCDA + margin formula + sensitivity analysis.</td><td>A black-box AI that's hard to explain.</td></tr>
+              <tr><td><strong>LLM</strong></td><td>Q&amp;A and explanations grounded in engine output.</td><td>LLM acting as the sole agronomist.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 style="margin-top:24px">Success metrics</h3>
+        <div class="kpi-grid">
+          <div class="kpi"><b>Margin / ha</b><span>Projected vs. actual, per season.</span></div>
+          <div class="kpi"><b>Water / ha</b><span>Volume of water per phase and per outcome.</span></div>
+          <div class="kpi"><b>Prediction error</b><span>Yield, rainfall, and soil-moisture response.</span></div>
+          <div class="kpi"><b>Adoption</b><span>Recommendations understood and actually followed.</span></div>
+          <div class="kpi"><b>Data confidence</b><span>Share of decisions backed by adequate-quality input.</span></div>
+        </div>
+
+        <div class="callout danger">
+          <strong>Hypotheses that must be validated before the final pitch:</strong>
+          farmers are willing to switch commodities, have access to seed and buyers, are willing to use
+          sensors, and have enough cost/price data to calculate margin. Run short interviews with farmers
+          and extension workers.
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="page">
+        <div class="section-head">
+          <div class="section-kicker">08 · Pitch line</div>
+        </div>
+        <div class="pitch">
+          <em>FieldShift helps smallholder farmers make every square meter count</em> by turning NASA Earth observations,
+          local soil and market data, and field sensors into explainable crop choices and automated resource actions.
+        </div>
+      </div>
+    </section>
+
+    <section id="sources">
+      <div class="page">
+        <div class="section-head">
+          <div class="section-kicker">Sources &amp; design basis</div>
+          <h2 style="font-size:30px">Primary references</h2>
+        </div>
+        <ol class="references">
+          <li><a href="https://www.spaceappschallenge.org/2026/challenges/field-shift-adapting-farms-with-nasa-data/" target="_blank" rel="noreferrer">NASA Space Apps Challenge 2026 — Field Shift: Adapting Farms with NASA Data</a>.</li>
+          <li><a href="https://www.earthdata.nasa.gov/data/projects/hls" target="_blank" rel="noreferrer">NASA Earthdata — Harmonized Landsat and Sentinel-2 (HLS)</a>.</li>
+          <li><a href="https://www.earthdata.nasa.gov/data/catalog/ges-disc-gpm-3imerghh-07" target="_blank" rel="noreferrer">NASA Earthdata — GPM IMERG Half-Hourly Precipitation</a>.</li>
+          <li><a href="https://www.earthdata.nasa.gov/data/platforms/space-based-platforms/smap" target="_blank" rel="noreferrer">NASA Earthdata — Soil Moisture Active Passive (SMAP)</a>.</li>
+          <li><a href="https://power.larc.nasa.gov/docs/services/api/temporal/daily/" target="_blank" rel="noreferrer">NASA POWER — Daily API Documentation</a>.</li>
+          <li>Internal team draft: <em>Agrometeorology Architecture &amp; Data — FieldShift</em>, including the current Field State, scenario-engine, and explainability payload design.</li>
+        </ol>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="page">
+      Concept artifact for discussion and validation. Agronomic recommendations must be checked against local expertise, field measurements, and current market data.
+    </div>
+  </footer>
+</body>
+</html>

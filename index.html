@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="FieldShift — a NASA Space Apps Challenge 2026 project turning Earth observation, local data, and field sensors into explainable crop and resource decisions for smallholder farmers." />
+  <title>FieldShift — Make every square meter count</title>
+  <link rel="stylesheet" href="assets/css/fieldshift.css" />
+</head>
+<body>
+  <div class="topbar">
+    <div class="page topbar-inner">
+      <a class="brand" href="index.html" style="text-decoration:none;color:inherit">
+        <div class="brand-mark">F</div><span>FieldShift</span>
+      </a>
+      <nav aria-label="Main navigation">
+        <a href="index.html" aria-current="page">Home</a>
+        <a href="problem.html">Problem &amp; Solution</a>
+        <a href="app.html">Prototype</a>
+        <a href="iot-3d.html">IoT 3D</a>
+        <a href="specs.html">Specs</a>
+      </nav>
+      <button class="print-button" onclick="window.print()">Print / Save PDF</button>
+    </div>
+  </div>
+
+  <main>
+    <header class="hero page">
+      <span class="eyebrow">NASA Space Apps Challenge 2026 · Field Shift</span>
+      <h1>Make every square meter count.</h1>
+      <p>
+        FieldShift helps smallholder farmers make every square meter count by turning NASA Earth
+        observations, local soil and market data, and field sensors into explainable crop choices
+        and automated resource actions.
+      </p>
+
+      <div class="hero-grid">
+        <div class="card">
+          <h2 style="font-size:30px">What we're optimizing</h2>
+          <p style="color:var(--muted); margin-bottom:16px">
+            Not expanding land, and not rebuilding the whole supply chain. FieldShift optimizes the
+            decisions a farmer can still control: <strong>what to plant, when to plant it, how much
+            water and input to use, and when to act.</strong>
+          </p>
+          <span class="tag">Crop selection</span>
+          <span class="tag">Crop rotation</span>
+          <span class="tag">Net margin / ha</span>
+          <span class="tag">Water efficiency</span>
+          <span class="tag">Explainable recommendation</span>
+          <span class="tag">IoT action loop</span>
+        </div>
+        <div class="card metric-card">
+          <div class="label">North-star metric</div>
+          <div class="big">Risk-adjusted net margin per hectare</div>
+          <p>Not simply chasing the highest yield. The system looks for the best net income within acceptable water, climate, soil, and market risk limits.</p>
+        </div>
+      </div>
+    </header>
+
+    <section id="navigate">
+      <div class="page">
+        <div class="section-head">
+          <div class="section-kicker">Explore the project</div>
+          <h2>Four views into FieldShift.</h2>
+          <p>Start with the problem framing, then see the decision engine running, inspect the field hardware, or dig into the technical specs.</p>
+        </div>
+
+        <div class="grid-4">
+          <a class="mini-card" href="problem.html" style="text-decoration:none;color:inherit;display:block">
+            <div class="icon">🗺️</div>
+            <h3>Problem &amp; Solution</h3>
+            <p>The problem definition, solution architecture and MVP plan.</p>
+          </a>
+          <a class="mini-card" href="app.html" style="text-decoration:none;color:inherit;display:block">
+            <div class="icon">🧮</div>
+            <h3>Live Prototype</h3>
+            <p>A working decision engine: field state → scenarios → action plan → IoT monitor.</p>
+          </a>
+          <a class="mini-card" href="iot-3d.html" style="text-decoration:none;color:inherit;display:block">
+            <div class="icon">📡</div>
+            <h3>IoT 3D Design</h3>
+            <p>Explore the FieldShift Node v1 hardware in 3D, with BOM and power budget.</p>
+          </a>
+          <a class="mini-card" href="specs.html" style="text-decoration:none;color:inherit;display:block">
+            <div class="icon">📐</div>
+            <h3>Technical Specs</h3>
+            <p>Data contracts, scoring formulas, hardware spec and safety guardrails.</p>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <section id="how-it-works">
+      <div class="page">
+        <div class="section-head">
+          <div class="section-kicker">How it works</div>
+          <h2>From data → decision → action → learning.</h2>
+          <p>The platform combines Earth observation, field profile, local economics, and field sensors. A scenario engine computes the options; an LLM explains the results in plain language; IoT helps carry out the action.</p>
+        </div>
+
+        <div class="flow" aria-label="FieldShift solution flow">
+          <div class="flow-step"><b>1. Farmer &amp; Field</b><span>Field polygon, previous crops, irrigation, capital, risk preference.</span></div>
+          <div class="flow-step"><b>2. NASA &amp; Local Data</b><span>Vegetation, rainfall, historical climate, soil, calendar, cost, and local prices.</span></div>
+          <div class="flow-step"><b>3. IoT Ground Truth</b><span>Soil moisture, microclimate, water flow, pump status.</span></div>
+          <div class="flow-step"><b>4. Scenario Engine</b><span>Test agronomic feasibility and rotation for each crop.</span></div>
+          <div class="flow-step"><b>5. Margin &amp; Risk</b><span>Compute net income, water needs, and risk penalties.</span></div>
+          <div class="flow-step llm"><b>6. LLM Explainability</b><span>Explains reasons, trade-offs, and next steps; not the primary scoring driver.</span></div>
+          <div class="flow-step"><b>7. Action Loop</b><span>Alerts, irrigation control, outcome monitoring, and recommendation updates.</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="data-sources">
+      <div class="page">
+        <div class="section-head">
+          <div class="section-kicker">Data sources</div>
+          <h2>NASA-first, grounded by field truth.</h2>
+        </div>
+        <span class="tag">NASA HLS</span>
+        <span class="tag">GPM IMERG</span>
+        <span class="tag">SMAP</span>
+        <span class="tag">NASA POWER</span>
+        <span class="tag">GEOGLAM Crop Monitor</span>
+        <span class="tag">Sentinel-2 L2A</span>
+        <span class="tag side">SoilGrids (ISRIC)</span>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="page">
+      Concept artifact for discussion and validation. Agronomic recommendations must be checked against local expertise, field measurements, and current market data.
+    </div>
+  </footer>
+</body>
+</html>

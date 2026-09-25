@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="FieldShift technical specification — data sources, Field State schema, scenario-engine formulas and constants, economics model, API contract, IoT hardware, firmware, safety guardrails, and governance." />
+  <title>FieldShift — Technical Specification</title>
+  <link rel="stylesheet" href="assets/css/fieldshift.css" />
+  <style>
+    /* Page-specific layout only. Everything reusable (cards, tables, callouts,
+       tags, formula, code-block, kpi, source-chip, side-index) comes from
+       assets/css/fieldshift.css. */
+    .spec-shell {
+      display: grid;
+      grid-template-columns: 230px 1fr;
+      gap: 30px;
+      align-items: start;
+      padding-top: 6px;
+    }
+    .spec-content { min-width: 0; }
+    .spec-content > section {
+      padding: 30px 0;
+      border-bottom: 1px solid var(--line);
+      scroll-margin-top: 84px;
+    }
+    .spec-content > section:last-child { border-bottom: 0; }
+    .spec-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 34px; height: 34px;
+      border-radius: 10px;
+      background: var(--surface-2);
+      color: var(--primary);
+      font-size: 15px;
+      margin-right: 10px;
+    }
+    h2 .spec-num { vertical-align: middle; }
+    .lede { max-width: 880px; color: var(--muted); }
+    .fact-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 14px; margin: 14px 0; }
+    @media (max-width: 700px) { .fact-grid { grid-template-columns: 1fr; } }
+    .const-list { margin: 10px 0; padding-left: 20px; color: var(--text); }
+    .const-list li { margin: 6px 0; }
+    .const-list code { background: var(--surface-2); padding: 1px 6px; border-radius: 6px; font-size: 12.5px; }
+    .honesty { border-left: 6px solid var(--accent); }
+    .honesty strong { color: #6e4e07; }
+    table td code, table th code { font-size: 12.5px; }
+    .step-num { color: var(--primary); font-weight: 850; }
+    @media (max-width: 960px) {
+      .spec-shell { grid-template-columns: 1fr; }
+      .side-index {
+        position: static;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        padding: 12px;
+      }
+      .side-index a { padding: 6px 10px; }
+    }
+    @media print {
+      .spec-content > section { break-inside: avoid; border-bottom: 0; }
+      .spec-shell { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="page topbar-inner">
+      <a class="brand" href="index.html" style="text-decoration:none;color:inherit">
+        <div class="brand-mark">F</div><span>FieldShift</span>
+      </a>
+      <nav aria-label="Main navigation">
+        <a href="index.html">Home</a>
+        <a href="problem.html">Problem &amp; Solution</a>
+        <a href="app.html">Prototype</a>
+        <a href="iot-3d.html">IoT 3D</a>
+        <a href="specs.html" aria-current="page">Specs</a>
+      </nav>
+      <button class="print-button" onclick="window.print()">Print / Save PDF</button>
+    </div>
+  </div>
+
+  <main>
+    <header class="page" style="padding:34px 0 8px">
+      <span class="eyebrow">Technical specification</span>
+      <h1 style="font-size:clamp(32px,5vw,56px); margin:16px 0 10px">What the code actually does.</h1>
+      <p class="lede" style="font-size:clamp(15px,1.6vw,18px)">
+        This document is written for reviewers who want to check the architecture, not take it on faith.
+        Every coefficient, gate, weight, and threshold below is transcribed from the running code
+        (<code>assets/js/engine.js</code>, <code>assets/js/data.js</code>, <code>data/*.js</code>,
+        <code>iot-3d.html</code>) — not from an aspirational diagram. Where the implementation is a static
+        snapshot instead of a live feed, or a calibrated constant instead of a literature value, it says so
+        explicitly. Where the code and an earlier draft disagreed, the code is treated as the source of
+        truth and the draft is corrected.
+      </p>
+      <div class="callout info" style="margin-top:18px">
+        <strong>How this was verified:</strong> the worked examples in Sections 5 and 6 were produced by
+        actually executing <code>window.FS.engine.listScenarios()</code> / <code>buildPayload()</code>
+        against the shipped <code>data/*.js</code> files under Node (the same code path the browser runs),
+        not hand-derived. Field <code>poly_idn_jt_001</code>, Jawa Timur, analysis date 2026-09-22.
+      </div>
+    </header>
+
+    <div class="page spec-shell">
+      <nav class="side-index" aria-label="Specification sections">
+        <a href="#overview">1. System overview</a>
+        <a href="#data-sources">2. Data sources</a>
+        <a href="#substitution">3. 48-hour substitutions</a>
+        <a href="#field-state">4. Field State schema</a>
+        <a href="#scenario-engine">5. Scenario engine</a>
+        <a href="#economics">6. Economics &amp; risk</a>
+        <a href="#api">7. API contract</a>
+        <a href="#hardware">8. IoT hardware</a>
+        <a href="#firmware">9. Firmware state machine</a>
+        <a href="#guardrails">10. Safety guardrails</a>
+        <a href="#privacy">11. Privacy &amp; governance</a>
+        <a href="#mvp">12. MVP scope &amp; KPIs</a>
+        <a href="#assumptions">13. Assumptions &amp; risks</a>
+        <a href="#references">14. References</a>
+      </nav>
+
+      <div class="spec-content">
+
+        <!-- 1. SYSTEM OVERVIEW ============================================ -->
+        <section id="overview">
+          <h2><span class="spec-num">1</span>System overview</h2>
+          <p class="lede">
+            FieldShift's MVP is a <strong>client-only decision engine</strong>: every score, gate, and IDR
+            figure a farmer sees is computed synchronously in the browser from bundled JSON, with one
+            optional live network call (NASA POWER). There is no server, database, or LLM in the scoring
+            path today — Sections 7 and 11 describe the migration target for a production build.
+          </p>
+
+          <div class="architecture">
+            <div class="layer">
+              <div class="layer-name">Data layer</div>
+              <div class="layer-body">
+                <code>data/*.js</code> — five static datasets (crops, field_state, soil, geoglam, calendar,
+                telemetry, bom) plus <code>assets/js/data.js</code>, which adds a demo/live mode switch and
+                overlays a live NASA POWER pull onto <code>agrometeorological_context</code> when available.
+              </div>
+            </div>
+            <div class="layer">
+              <div class="layer-name">Field State</div>
+              <div class="layer-body">
+                <code>engine.computeFieldState()</code> merges runtime farmer input on top of the documented
+                default field state — the single contract every other module reads (Section 4).
+              </div>
+            </div>
+            <div class="layer">
+              <div class="layer-name">Scenario engine</div>
+              <div class="layer-body">
+                <code>engine.js</code> — four hard feasibility gates, four weighted sub-scores, a
+                priority-weighted total, and a verdict. Pure, deterministic, synchronous arithmetic — no DOM
+                access, no network call, no LLM call anywhere in this file, by explicit design rule
+                (Section 5).
+              </div>
+            </div>
+            <div class="layer">
+              <div class="layer-name">Economics &amp; confidence</div>
+              <div class="layer-body">
+                Margin range, break-even price, price sensitivity, and a data-confidence score with
+                human-readable reasons, computed per scenario (Section 6).
+              </div>
+            </div>
+            <div class="layer">
+              <div class="layer-name">Presentation (app.html)</div>
+              <div class="layer-body">
+                Renders scenario cards, trade-off prose (templated string-building — not LLM-generated),
+                and source-attribution chips. Built and maintained separately from this spec page.
+              </div>
+            </div>
+            <div class="layer">
+              <div class="layer-name">IoT action loop</div>
+              <div class="layer-body">
+                Physically separate from the web app today: <code>FieldShift Node v1</code> hardware
+                (Section 8), a firmware state machine (Section 9), and fail-closed safety guardrails
+                (Section 10). Documented as a concept artifact, not yet wired to the scenario engine's
+                output.
+              </div>
+            </div>
+            <div class="layer">
+              <div class="layer-name">Gov/NGO aggregation (optional branch)</div>
+              <div class="layer-body">
+                Consent-gated, aggregated-only view for extension workers and NGOs (Section 11). Not
+                implemented — there is no backend to aggregate anything yet — documented here as the design
+                target.
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 2. DATA SOURCES =============================================== -->
+        <section id="data-sources">
+          <h2><span class="spec-num">2</span>Data sources</h2>
+          <p class="lede">
+            The posture is NASA-first: NASA sources anchor the data layer, and every non-NASA source is
+            labelled explicitly, in the UI and in <code>assets/js/data.js</code>'s <code>PROVENANCE</code>
+            table. <span class="source-chip">NASA POWER</span> replaced the Open-Meteo-style baseline used in
+            an earlier draft. <span class="source-chip">NASA HLS</span> (30&nbsp;m) is the documented
+            architecture lead for vegetation trend, with <span class="source-chip">Sentinel-2 L2A</span>
+            (10&nbsp;m) as the detail layer — see the honesty note below on what is actually wired up.
+            <span class="source-chip non-nasa">SoilGrids (ISRIC)</span> is explicitly <strong>not</strong> a
+            NASA source.
+          </p>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Dataset</th><th>Provider</th><th>Resolution</th><th>Access / MVP treatment</th><th>Why</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>NASA POWER</strong><br /><span class="tag">NASA</span><br /><span class="muted" style="font-size:12.5px">T2M, T2M_MAX, PRECTOTCORR, RH2M, ALLSKY_SFC_SW_DWN</span></td>
+                  <td>NASA Langley Research Center</td>
+                  <td>Point query, daily (14-day lookback in live mode)</td>
+                  <td><strong>Live</strong> in "Live" mode — client-side <code>fetch()</code> to <code>power.larc.nasa.gov/api/temporal/daily/point</code>, no API key, 6&nbsp;s timeout, silent fallback to the demo snapshot on any failure (offline, CORS, <code>file://</code>). <strong>Demo</strong> mode uses the field_state.js snapshot (Below-average precip / Above-average temp, 2026-09-22).</td>
+                  <td>NASA-first mandate; replaces the Open-Meteo-style baseline from the earlier draft. No key requirement and a browser-consumable JSON response made it the only source that was actually wired live in 48 hours.</td>
+                </tr>
+                <tr>
+                  <td><strong>NASA Harvest — Harvest2Market</strong> crop calendar<br /><span class="tag">NASA</span></td>
+                  <td>NASA Harvest</td>
+                  <td>National, half-month bins (24 rows/year, 4 tracks)</td>
+                  <td><strong>Static</strong> — transcribed once from <a href="https://harvest2market.nasaharvest.org/idn" target="_blank" rel="noreferrer">harvest2market.nasaharvest.org/idn</a> into <code>data/calendar.js</code>. No live pull.</td>
+                  <td>Governs Gate&nbsp;2 (does a planting window exist for this crop). A genuine NASA product, at the national granularity it was designed for — not claimed as plot-level.</td>
+                </tr>
+                <tr>
+                  <td><strong>GEOGLAM Crop Monitor</strong><br /><span class="source-chip non-nasa">Non-NASA</span><br /><span class="muted" style="font-size:12.5px">Early Warning No.119 (Sept 2026) + 12-month condition table</span></td>
+                  <td>Group on Earth Observations Global Agricultural Monitoring (GEOGLAM)</td>
+                  <td>Country / regional, monthly + seasonal outlook</td>
+                  <td><strong>Static</strong> — transcribed into <code>data/geoglam.js</code> from the Early Warning bulletin and <a href="https://cropmonitortools.org/tools/cmet/" target="_blank" rel="noreferrer">cropmonitortools.org/tools/cmet</a>. Drives the default <code>precipitation_outlook</code>/<code>temperature_outlook</code> and the climate sub-score's regional nudge.</td>
+                  <td>No stable public API and an overnight CSV export queue (see Section 3) — a multi-agency GEO initiative, marked <code>is_nasa: false</code> in <code>data.js</code> even though NASA participates in it.</td>
+                </tr>
+                <tr>
+                  <td><strong>NASA HLS</strong> (Harmonized Landsat &amp; Sentinel-2)<br /><span class="tag">NASA / USGS</span></td>
+                  <td>NASA / USGS</td>
+                  <td>30&nbsp;m, ~2–3 day composite</td>
+                  <td><strong>Architecture target, not wired.</strong> Documented as the lead vegetation-trend signal in problem.html; no HLS tile query exists in the current data files.</td>
+                  <td>Design intent for a production build: 30&nbsp;m HLS as the broad trend signal, sharpened by 10&nbsp;m Sentinel-2 where available.</td>
+                </tr>
+                <tr>
+                  <td><strong>Copernicus Sentinel-2 L2A</strong><br /><span class="source-chip non-nasa">Non-NASA</span></td>
+                  <td>ESA / Copernicus</td>
+                  <td>10&nbsp;m, ~5 day revisit</td>
+                  <td><strong>Static</strong> — the MVP's only implemented <code>live_observation</code> record (NDVI 0.42, NDWI &minus;0.15, "Declining / Drying") is a single Sentinel-2 point-in-time reading baked into <code>field_state.js</code>, not a live tile pull.</td>
+                  <td>Feeds the water sub-score's "currently drying" penalty (Section 5). One static reading, honestly labelled as such — not the dual HLS+Sentinel-2 live pairing the architecture describes.</td>
+                </tr>
+                <tr>
+                  <td><strong>SoilGrids</strong> (pH, organic carbon, water retention)<br /><span class="source-chip non-nasa">Non-NASA</span></td>
+                  <td>ISRIC — World Soil Information</td>
+                  <td>250&nbsp;m raster (~6.25 ha/pixel)</td>
+                  <td><strong>Static</strong> — one point extraction via QGIS "Identify Features" (Section 3), frozen into <code>data/soil.js</code>: pH 6.2, organic carbon 366 dg/kg (3.66%), water retention "Medium".</td>
+                  <td>Best public global soil raster available, but explicitly and repeatedly labelled "NOT a NASA source" in the UI, the data file header, and <code>data.js</code>'s provenance table.</td>
+                </tr>
+                <tr>
+                  <td><strong>GPM IMERG / SMAP</strong><br /><span class="tag">NASA</span></td>
+                  <td>NASA GES DISC / NASA SMAP</td>
+                  <td>Sub-daily / ~3-day revisit</td>
+                  <td><strong>Not implemented.</strong> Named in problem.html's target Earth-observation layer for rainfall dry-spell detection and regional soil-moisture context, but no data file or fetch call exists for either in this build.</td>
+                  <td>Listed here for completeness and honesty about the gap between the architecture diagram and the shipped code — the MVP's actual precipitation/temperature signal comes from NASA POWER + GEOGLAM instead.</td>
+                </tr>
+                <tr>
+                  <td><strong>FieldShift crop parameter table</strong><br /><span class="source-chip non-nasa">Internal</span></td>
+                  <td>FieldShift (FAO / BPS / Kementan order-of-magnitude anchors)</td>
+                  <td>n/a — authored table, 5 crops</td>
+                  <td><strong>Static</strong> — hardcoded in <code>data/crops.js</code>.</td>
+                  <td>No live plot-level agronomic-economic feed exists in Indonesia's open data ecosystem that a 48-hour build could integrate. The source file itself says "NOT independently verified".</td>
+                </tr>
+                <tr>
+                  <td><strong>FieldShift synthetic IoT telemetry</strong><br /><span class="source-chip non-nasa">Synthetic</span></td>
+                  <td>FieldShift</td>
+                  <td>Node, 30-minute interval, 48 hours</td>
+                  <td><strong>Static / illustrative</strong> — <code>data/telemetry.js</code>, explicitly labelled "NOT live sensor data".</td>
+                  <td>No physical sensor was deployed for the hackathon; synthetic-but-plausible data (one clean irrigation event, one sensor-fault window) demonstrates the UI without fabricating a live claim.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout honesty">
+            <strong>Implementation note:</strong> <code>assets/js/data.js</code>'s provenance chip for
+            <code>field_state</code> labels the whole object "NASA POWER &amp; GEOGLAM (demo snapshot)" or
+            "NASA POWER (live)" — including the <code>live_observation</code> sub-object, whose own
+            <code>source</code> field correctly says "Copernicus Sentinel-2 L2A". This is a minor
+            provenance-chip inconsistency (Sentinel-2 is ESA, not NASA POWER), not a scoring bug: the engine
+            never reads the chip, only the underlying values. Worth tightening in a future pass.
+          </div>
+        </section>
+
+        <!-- 3. 48-HOUR SUBSTITUTION TABLE ================================= -->
+        <section id="substitution">
+          <h2><span class="spec-num">3</span>The 48-hour substitution table</h2>
+          <p class="lede">
+            Three data layers had an ideal live-architecture design and a different, static reality in the
+            build. This is deliberate engineering judgement under a hard time budget — not a shortcoming
+            being hidden.
+          </p>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Layer</th><th>Ideal live architecture</th><th>What the MVP actually does</th><th>Why (rejection reason)</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>Regional crop condition</strong></td>
+                  <td>Live query against a GEOGLAM / HarvestGLAM API or dashboard for the current bulletin.</td>
+                  <td>Static JSON transcribed once from GEOGLAM Early Warning No.119 (Sept 2026) and the cropmonitortools.org CMET export, baked into <code>data/geoglam.js</code>.</td>
+                  <td>GEOGLAM/HarvestGLAM has <strong>no stable public API</strong>, and its CSV export process <strong>queues overnight</strong> — incompatible with a 48-hour build cycle.</td>
+                </tr>
+                <tr>
+                  <td><strong>Soil chemistry</strong></td>
+                  <td>Per-request raster sampling against a SoilGrids WCS/REST endpoint for the exact field-polygon centroid, refreshable on demand.</td>
+                  <td>One-time point extraction via <strong>QGIS "Identify Features"</strong> against a downloaded regional GeoTIFF (West Java &amp; Banten), frozen into <code>data/soil.js</code>: <strong>pH 6.2</strong>, <strong>organic carbon 366 dg/kg (3.66%)</strong>, water retention "Medium".</td>
+                  <td>SoilGrids ships <strong>heavy global GeoTIFF rasters</strong> unsuited to a request-time live pipeline in the time available. A single manual extraction, clearly labelled as such, was the pragmatic choice.</td>
+                </tr>
+                <tr>
+                  <td><strong>Climate / weather baseline</strong></td>
+                  <td><em>Superseded:</em> an Open-Meteo-style third-party forecast API, as in the earlier draft.</td>
+                  <td><strong>NASA POWER</strong>, queried live client-side in "Live" mode (see Section 2), falling back silently to the demo snapshot.</td>
+                  <td>NASA-first judging criterion, and POWER needs no API key and returns browser-consumable JSON — this is the one row that <strong>was</strong> successfully wired live, unlike the other two.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout">
+            <strong>Framing:</strong> none of these three substitutions were forced by a technical dead end
+            that couldn't be solved — they were the correct call against a 48-hour clock. A live SoilGrids
+            or GEOGLAM integration is a "when we have more time" item, not an "impossible" one; documenting
+            exactly which value is static and why is what keeps this honest.
+          </div>
+        </section>
+
+        <!-- 4. FIELD STATE SCHEMA ========================================= -->
+        <section id="field-state">
+          <h2><span class="spec-num">4</span>Field State schema</h2>
+          <p class="lede">
+            The Field State is the single contract every module reads. <code>engine.computeFieldState(inputs, data)</code>
+            merges a partial runtime <code>inputs</code> object on top of the documented default in
+            <a href="data/field_state.json" target="_blank">data/field_state.json</a> — any field the caller
+            leaves unset falls back to the default. The published, linkable contract files are:
+            <a href="data/field_state.json" target="_blank">field_state.json</a>,
+            <a href="data/crops.json" target="_blank">crops.json</a>,
+            <a href="data/soil.json" target="_blank">soil.json</a>,
+            <a href="data/geoglam.json" target="_blank">geoglam.json</a>,
+            <a href="data/calendar.json" target="_blank">calendar.json</a>,
+            <a href="data/telemetry.json" target="_blank">telemetry.json</a>, and
+            <a href="data/bom.json" target="_blank">bom.json</a>.
+          </p>
+
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Field</th><th>Type</th><th>Unit / domain</th><th>Nullable / default</th><th>Notes</th></tr></thead>
+              <tbody>
+                <tr><td><code>request_metadata.field_id</code></td><td>string</td><td>opaque id</td><td>No — <code>"poly_idn_jt_001"</code></td><td>Identifies the field polygon.</td></tr>
+                <tr><td><code>request_metadata.location</code></td><td>string</td><td>free text</td><td>No</td><td>"Jawa Timur, Indonesia".</td></tr>
+                <tr><td><code>request_metadata.analysis_date</code></td><td>string</td><td>ISO date</td><td>No</td><td>"2026-09-22".</td></tr>
+                <tr><td><code>request_metadata.centroid.lat/lon</code></td><td>number</td><td>degrees</td><td>No</td><td>Used as the NASA POWER point-query coordinate.</td></tr>
+                <tr><td><code>farmer_input.previous_crop</code></td><td>string</td><td>must match a key in <code>data/crops.js</code> by name</td><td>Defaults to "Rice"</td><td>Determines Scenario A (the do-nothing baseline) and the rotation/monoculture logic.</td></tr>
+                <tr><td><code>farmer_input.irrigation_type</code></td><td>string enum</td><td><code>Rainfed | Furrow | Sprinkler | Drip</code></td><td>Defaults to "Rainfed"</td><td>Looked up in the <code>IRRIGATION</code> table (Section 5); unrecognised values fall back to Rainfed.</td></tr>
+                <tr><td><code>farmer_input.priorities</code></td><td>string[]</td><td>subset of 5 labels (Section 5)</td><td>Yes — empty array allowed; defaults to <code>["Save Water","Reduce Climate Risk"]</code></td><td>Empty/unset priorities give a neutral 50 farmer-priority-alignment score and equal 0.25/0.25/0.25/0.25 category weights.</td></tr>
+                <tr><td><code>farmer_input.area_ha</code></td><td>number</td><td>hectares, &gt; 0</td><td>Defaults to 1</td><td>Not sourced from the team's research PDF — an MVP default so the capital gate and economics have somewhere to start.</td></tr>
+                <tr><td><code>farmer_input.capital_available_idr_per_ha</code></td><td>number</td><td>IDR/ha, &ge; 0</td><td>Defaults to 15,000,000</td><td>Compared against each crop's <code>capital_requirement_idr_per_ha</code> in Gate 3.</td></tr>
+                <tr><td><code>soil_chemistry.pH</code></td><td>number</td><td>pH (H&#8322;O)</td><td>No — 6.2</td><td>Gate 1 input.</td></tr>
+                <tr><td><code>soil_chemistry.organic_carbon_pct</code></td><td>number</td><td>% SOC</td><td>No — 3.66</td><td>Display value; <code>soc_level</code> ("high") is what the engine actually scores against.</td></tr>
+                <tr><td><code>soil_chemistry.soc_level</code></td><td>string enum</td><td><code>low | medium | high</code></td><td>No — "high"</td><td>Mapped to {0.3, 0.6, 1.0} in <code>soilHealthImpact()</code>.</td></tr>
+                <tr><td><code>soil_chemistry.water_retention</code></td><td>string</td><td>qualitative</td><td>No — "Medium"</td><td>Descriptive only; not read by the current scoring formulas.</td></tr>
+                <tr><td><code>live_observation.ndvi_current</code></td><td>number</td><td>&minus;1..1</td><td>No — 0.42</td><td>Descriptive; not currently read by the scoring formulas (see honesty note, Section 5).</td></tr>
+                <tr><td><code>live_observation.ndwi_current</code></td><td>number</td><td>&minus;1..1</td><td>No — &minus;0.15</td><td>Only negative values penalize the water sub-score (a wet/stable reading gets no bonus — a snapshot is not a forecast).</td></tr>
+                <tr><td><code>agrometeorological_context.precipitation_outlook</code></td><td>string enum</td><td><code>Below-average | Average | Above-average</code></td><td>No — "Below-average"</td><td>Drives Gate 4 and the water/climate sub-scores. Overwritten by the live NASA POWER overlay in "Live" mode.</td></tr>
+                <tr><td><code>agrometeorological_context.temperature_outlook</code></td><td>string enum</td><td><code>Below-average | Average | Above-average</code></td><td>No — "Above-average"</td><td>Drives the climate sub-score's heat term.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- 5. SCENARIO ENGINE SPEC ======================================= -->
+        <section id="scenario-engine">
+          <h2><span class="spec-num">5</span>Scenario engine spec</h2>
+          <p class="lede">
+            Source of truth: <code>assets/js/engine.js</code>. Every constant below is copied verbatim from
+            the code, including its inline comment where that comment explains a real calibration or
+            defect-fix decision.
+          </p>
+
+          <h3 style="margin-top:26px">Crop parameter table (data/crops.js)</h3>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Crop</th><th>Water req.</th><th>Cycle</th><th>pH band</th><th>SOC pref.</th><th>N-fixing</th><th>Drought sens.</th><th>Heat tol.</th><th>Yield</th><th>Price</th></tr></thead>
+              <tbody>
+                <tr><td>Rice</td><td>1200 mm</td><td>115 d</td><td>5.0–7.5</td><td>medium</td><td>no</td><td>0.85</td><td>0.50</td><td>5.2 t/ha</td><td>6,000 IDR/kg</td></tr>
+                <tr><td>Maize</td><td>600 mm</td><td>100 d</td><td>5.5–7.5</td><td>high</td><td>no</td><td>0.55</td><td>0.60</td><td>5.0 t/ha</td><td>5,000 IDR/kg</td></tr>
+                <tr><td>Soybean</td><td>450 mm</td><td>80 d</td><td>6.0–7.0</td><td>medium</td><td>yes</td><td>0.35</td><td>0.65</td><td>1.5 t/ha</td><td>10,000 IDR/kg</td></tr>
+                <tr><td>Mung bean</td><td>300 mm</td><td>60 d</td><td>5.5–7.5</td><td>low</td><td>yes</td><td>0.25</td><td>0.75</td><td>1.2 t/ha</td><td>22,000 IDR/kg</td></tr>
+                <tr><td>Peanut</td><td>500 mm</td><td>100 d</td><td>5.5–7.0</td><td>medium</td><td>yes</td><td>0.40</td><td>0.70</td><td>1.3 t/ha</td><td>15,000 IDR/kg</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="muted" style="font-size:13px">
+            Every figure is loosely anchored to FAO crop-water-requirement ranges and Indonesian BPS/Kementan
+            price orders of magnitude, but "NOT independently verified" — <code>data/crops.js</code>'s own
+            <code>source_note</code>.
+          </p>
+
+          <h3 style="margin-top:30px">Feasibility gates (hard pass/fail, evaluated before any scoring)</h3>
+          <ol>
+            <li><strong>Soil pH.</strong> Reject if <code>soil_chemistry.pH</code> falls outside <code>[crop.ph_min, crop.ph_max]</code>.</li>
+            <li><strong>Planting window.</strong> Reject if none of the crop's <code>calendar_track</code> entries ever shows <code>"Planting-Early Veg"</code> in the 24-row half-month calendar.</li>
+            <li><strong>Capital.</strong> Reject if <code>capital_requirement_idr_per_ha × area_ha &gt; capital_available_idr_per_ha × area_ha</code>. <span class="muted">(Note: because the farmer's capital figure is already expressed per hectare, <code>area_ha</code> cancels out of both sides — the pass/fail outcome is independent of the declared area. A minor code smell, not a scoring bug: the comparison direction is unaffected.)</span></li>
+            <li><strong>Water hard-safety-net.</strong> Only checked when <code>precipitation_outlook === "Below-average"</code>: reject if <code>water_requirement_mm &gt; irrigation.capacity_mm × irrigation.efficiency × 3</code> (<code>WATER_GATE_MULTIPLIER = 3</code>). Deliberately loose so the ordinary "rice on rainfed under a dry outlook" case is <strong>scored poorly, not gated out</strong> — matching the calibration target that Scenario A is scored, not marked infeasible.</li>
+          </ol>
+
+          <h3 style="margin-top:30px">Sub-score 1 — Water demand suitability</h3>
+          <p>Irrigation table (<code>IRRIGATION</code>):</p>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Type</th><th>Capacity</th><th>Efficiency</th><th>Rain sensitivity</th></tr></thead>
+              <tbody>
+                <tr><td>Rainfed</td><td>750 mm</td><td>0.55</td><td>1.00</td></tr>
+                <tr><td>Furrow</td><td>1300 mm</td><td>0.65</td><td>0.50</td></tr>
+                <tr><td>Sprinkler</td><td>1500 mm</td><td>0.78</td><td>0.30</td></tr>
+                <tr><td>Drip</td><td>1600 mm</td><td>0.92</td><td>0.15</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <ul class="const-list">
+            <li>Precipitation adjustment (<code>PRECIP_ADJ_DELTA</code>, scaled by rain sensitivity): Below-average <code>&minus;0.15</code>, Average <code>0</code>, Above-average <code>+0.10</code>.</li>
+            <li>NDWI weight: <code>WATER_NDWI_WEIGHT = 0.30</code> — only a currently-drying reading (NDWI &lt; 0) penalizes; a wet reading gets no bonus.</li>
+            <li>Calibration constant: <code>WATER_K = 110</code>, tuned so Rice under Rainfed + Below-average + NDWI &minus;0.15 (the reference case) lands near 30/100.</li>
+            <li>Blend weights: <code>WATER_IRRIGATION_WEIGHT = 0.6</code>, <code>WATER_ABSOLUTE_WEIGHT = 0.4</code> — the final score blends the farmer's actual irrigation choice (60%) with the same formula forced to Rainfed (40%, the crop's irrigation-independent exposure to the weather).</li>
+          </ul>
+          <div class="formula" style="font-size:16px">
+            raw(crop, irrType) = WATER_K &times; capacity &times; efficiency &times; precipFactor &times; ndwiFactor &divide; water_requirement_mm
+            <small>score = 0.6 &times; clamp(raw(actual irrigation)) + 0.4 &times; clamp(raw(Rainfed)) — the blend that fixes a documented saturation defect: under high-capacity irrigation (e.g. Drip), a pure capacity formula pushed every crop to exactly 100, destroying discrimination between a thirsty crop (rice) and a frugal one (soybean).</small>
+          </div>
+
+          <h3 style="margin-top:30px">Sub-score 2 — Soil health impact</h3>
+          <div class="formula" style="font-size:16px">
+            score = 40 + soc_level &times; soc_preference &times; 30 + (rotation ? +10 : &minus;13) + (legume following non-legume ? +22 : 0)
+          </div>
+          <ul class="const-list">
+            <li><code>SOIL_BASE = 40</code> (neutral start), <code>SOIL_SOC_MAX_BONUS = 30</code> (soc_level and soc_preference each mapped to {0.3, 0.6, 1.0}).</li>
+            <li><code>SOIL_ROTATION_BONUS = +10</code> for breaking the previous crop's cycle; <code>SOIL_MONOCULTURE_PENALTY = &minus;13</code> for repeating it.</li>
+            <li><code>SOIL_NITROGEN_FIX_BONUS = +22</code> when the candidate is a legume following a non-legume.</li>
+          </ul>
+
+          <h3 style="margin-top:30px">Sub-score 3 — Climate resilience</h3>
+          <div class="formula" style="font-size:16px">
+            score = 100 &minus; 60 &times; drought_sensitivity &times; precipRisk &minus; 25 &times; (1 &minus; heat_tolerance) &times; tempRisk + (cycle &lt; 90d ? +12 : 0) + GEOGLAM nudge
+          </div>
+          <ul class="const-list">
+            <li><code>CLIMATE_DROUGHT_WEIGHT = 60</code>, precipRisk = {Below-average: 1, Average: 0.5, Above-average: 0.2}.</li>
+            <li><code>CLIMATE_HEAT_WEIGHT = 25</code>, tempRisk = {Above-average: 1, Average: 0.5, Below-average: 0.2}.</li>
+            <li><code>CLIMATE_SHORT_CYCLE_BONUS = +12</code> for crops with <code>cycle_days &lt; 90</code> (partial escape from a late-season dry/heat spell).</li>
+            <li>GEOGLAM Early Warning nudge (regional, per-crop): Favourable <code>+3</code>, Poor <code>&minus;8</code>, Failure <code>&minus;15</code>. Only rice and maize have an Early Warning entry in <code>data/geoglam.js</code> — soybean, mung bean, and peanut never receive this nudge (no bonus, no penalty).</li>
+          </ul>
+
+          <h3 style="margin-top:30px">Sub-score 4 — Farmer priority alignment</h3>
+          <div class="formula" style="font-size:16px">
+            score = 25 + mean(active-priority fits) &times; 87
+          </div>
+          <p>
+            Five priorities, each a min-max normalization <strong>across the full 5-crop catalogue</strong>
+            (rice, maize, soybean, mung bean, peanut — not just the 3 crops offered as MVP scenarios, so mung
+            bean and peanut's presence still shapes e.g. the "Save Water" fit curve even though they are not
+            offered as rotation options):
+          </p>
+          <ul class="const-list">
+            <li><strong>Save Water</strong> — inverse-normalized <code>water_requirement_mm</code>.</li>
+            <li><strong>Maximize Yield</strong> — normalized <code>base_yield_t_ha</code>.</li>
+            <li><strong>Reduce Climate Risk</strong> — normalized <code>(1&minus;drought_sensitivity) + heat_tolerance</code>.</li>
+            <li><strong>Improve Soil Health</strong> — normalized <code>nitrogen_fixing + soc_preference</code>.</li>
+            <li><strong>Low Capital</strong> — inverse-normalized <code>capital_requirement_idr_per_ha</code>.</li>
+          </ul>
+          <p class="muted" style="font-size:13.5px">
+            <code>PRIORITY_ALIGNMENT_FLOOR = 25</code>, <code>PRIORITY_ALIGNMENT_SCALE = 87</code>. No
+            priorities selected → neutral 50. The mean divides by the <em>actual</em> number of active
+            priorities — a fixed-denominator bug ("DEFECT 1" in the code comments) used to divide by a
+            hardcoded 2 regardless of how many priorities were selected, which penalized a farmer who cared
+            about exactly one thing. Fixed; regression-tested in <code>engine.test.js</code>.
+          </p>
+
+          <h3 style="margin-top:30px">Priority weighting matrix</h3>
+          <p>
+            Base weight is 0.25 per category. Each active priority adds <code>CATEGORY_WEIGHT_BOOST = 0.05</code>
+            to its mapped category, then the total boost is subtracted back out evenly across all four
+            categories so the weights always sum to exactly 1:
+          </p>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Priority</th><th>Boosts category</th></tr></thead>
+              <tbody>
+                <tr><td>Save Water</td><td>water_demand_suitability</td></tr>
+                <tr><td>Reduce Climate Risk</td><td>climate_resilience</td></tr>
+                <tr><td>Improve Soil Health</td><td>soil_health_impact</td></tr>
+                <tr><td>Maximize Yield</td><td>farmer_priority_alignment</td></tr>
+                <tr><td>Low Capital</td><td>farmer_priority_alignment</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="muted" style="font-size:13.5px">
+            Example — default priorities <code>["Save Water", "Reduce Climate Risk"]</code>: raw boosts
+            water +0.05, climate +0.05; total boost 0.10 &divide; 4 categories = 0.025 subtracted from each →
+            final weights <strong>water 0.275, soil 0.225, climate 0.275, priority 0.225</strong> (sums to 1.0).
+          </p>
+
+          <h3 style="margin-top:30px">Verdict thresholds</h3>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Weighted total</th><th>Verdict</th></tr></thead>
+              <tbody>
+                <tr><td>&ge; 80</td><td><span class="verdict-pill rec-high">Highly Recommended</span></td></tr>
+                <tr><td>60–79</td><td><span class="verdict-pill rec-mid">Viable Alternative</span></td></tr>
+                <tr><td>40–59</td><td><span class="verdict-pill rec-mid">Marginal</span></td></tr>
+                <tr><td>&lt; 40</td><td><span class="verdict-pill rec-low">Not Recommended</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 style="margin-top:30px">Worked example (reproduced by actually running the engine)</h3>
+          <p>
+            Default field state, default farmer input (previous crop Rice, Rainfed, priorities Save Water +
+            Reduce Climate Risk):
+          </p>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Scenario</th><th>Rotation</th><th>Water</th><th>Soil</th><th>Climate</th><th>Priority</th><th>Total</th><th>Verdict</th></tr></thead>
+              <tbody>
+                <tr><td>A (baseline)</td><td>Rice → Rice</td><td>31</td><td>45</td><td>40</td><td>25</td><td>35.3</td><td><span class="verdict-pill rec-low">Not Recommended</span></td></tr>
+                <tr><td>B</td><td>Rice → Soybean</td><td>82</td><td>90</td><td>82</td><td>95</td><td>86.7</td><td><span class="verdict-pill rec-high">Highly Recommended</span></td></tr>
+                <tr><td>C</td><td>Rice → Maize</td><td>61</td><td>80</td><td>60</td><td>74</td><td>67.9</td><td><span class="verdict-pill rec-mid">Viable Alternative</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="formula" style="font-size:15px">
+            B's total = 82&times;0.275 + 90&times;0.225 + 82&times;0.275 + 95&times;0.225 = 22.55 + 20.25 + 22.55 + 21.375 = 86.725 → <strong>86.7</strong>
+            <small>Ranking: B (86.7) &gt; C (67.9) &gt; A (35.3) — reproduced exactly by <code>engine.test.js</code>'s 34-assertion self-check.</small>
+          </div>
+
+          <div class="callout honesty">
+            <strong>Honesty note 1 — scenario IDs are rank-based, not identity-based.</strong> Scenario A is
+            always the do-nothing baseline: repeat the previous crop. Every other candidate crop is scored
+            and then sorted by descending weighted total, and assigned B, C, D&hellip; in that order. Under a
+            different set of farmer priorities, "Scenario B" can be a <em>different crop</em> — it is not a
+            fixed label for soybean. The ranking, not the letter, carries the meaning.
+          </div>
+
+          <div class="callout honesty">
+            <strong>Honesty note 2 — the candidate pool is restricted to rice, maize, and soybean</strong>
+            (<code>MVP_SCENARIO_CROP_KEYS</code>), matching problem.html's stated MVP scope ("three realistic
+            options"). Running the same engine against the two crops left out of the pilot — with identical
+            field state and priorities — actually produces:
+            <div class="table-wrap" style="margin-top:10px">
+              <table>
+                <thead><tr><th>Crop (not offered in MVP)</th><th>Water</th><th>Soil</th><th>Climate</th><th>Priority</th><th>Total</th><th>Verdict</th></tr></thead>
+                <tbody>
+                  <tr><td>Mung bean</td><td>100</td><td>81</td><td>91</td><td>100</td><td><strong>93.3</strong></td><td>Highly Recommended</td></tr>
+                  <tr><td>Peanut</td><td>74</td><td>90</td><td>69</td><td>92</td><td><strong>80.3</strong></td><td>Highly Recommended</td></tr>
+                </tbody>
+              </table>
+            </div>
+            Both <strong>outscore</strong> soybean (86.7) or sit close behind it — the full-catalogue ranking
+            would actually be mung bean (93.3) &gt; soybean (86.7) &gt; peanut (80.3) &gt; maize (67.9) &gt;
+            rice baseline (35.3). Mung bean and peanut remain in <code>data/crops.js</code> and still shape
+            the priority-alignment min-max curves; they are absent from the scenario list purely because the
+            MVP was scoped to three commodities, not because the model can't evaluate them or rates them
+            poorly.
+          </div>
+
+          <div class="callout honesty">
+            <strong>Honesty note 3 — several coefficients are empirically calibrated, not derived from
+            agronomic literature.</strong> <code>WATER_K = 110</code>, the 0.6/0.4 water blend weights, the
+            soil bonuses/penalties (40 / 30 / 10 / 13 / 22), the climate weights (60 / 25 / 12 / 3 / 8 / 15),
+            <code>PRIORITY_ALIGNMENT_FLOOR/SCALE = 25/87</code>, and <code>CATEGORY_WEIGHT_BOOST = 0.05</code>
+            were back-solved so the engine reproduces the team's documented reference scenario (the A/B/C
+            targets above, encoded in <code>engine.test.js</code>). They are internally consistent and
+            regression-tested, but they are <strong>not</strong> independently derived from FAO/agronomic
+            literature the way the crop parameter table (water requirement, pH band, yield) is. These are the
+            first constants to replace with field-validated values once real trial or extension-officer data
+            exists.
+          </div>
+        </section>
+
+        <!-- 6. ECONOMICS & RISK MODEL ====================================== -->
+        <section id="economics">
+          <h2><span class="spec-num">6</span>Economics &amp; risk model</h2>
+          <p class="lede">Source: <code>computeEconomics()</code> and <code>computeConfidence()</code> in <code>engine.js</code>.</p>
+
+          <div class="formula" style="font-size:16px">
+            Expected Net Margin/ha = predicted_yield &times; 1000 &times; farm_gate_price &minus; variable_cost
+            <small>predicted_yield = base_yield_t_ha &times; (0.70 + 0.30 &times; climate_resilience &divide; 100) — a stressed crop under-performs its reference yield.</small>
+          </div>
+
+          <h3 style="margin-top:26px">Risk range</h3>
+          <ul class="const-list">
+            <li>Downside fraction = drought_sensitivity &times; 0.25 <em>(RISK_DROUGHT_DOWNSIDE_MAX)</em> + market_price_volatility &times; 0.20 <em>(RISK_PRICE_VOL_MAX)</em> + (1&minus;confidence) &times; 0.15 <em>(RISK_DATA_UNCERTAINTY_MAX)</em>.</li>
+            <li>Upside fraction = price-volatility term &times; 0.60 <em>(RISK_PRICE_VOL_UPSIDE_SHARE)</em> + data-uncertainty term &times; 0.30 <em>(RISK_DATA_UNCERTAINTY_UPSIDE_SHARE)</em>. Drought risk has no upside share — it can only hurt, never help.</li>
+            <li><code>low = expected &times; (1 &minus; downside)</code>, <code>high = expected &times; (1 + upside)</code>.</li>
+            <li><code>break_even_price = variable_cost &divide; (predicted_yield &times; 1000)</code>.</li>
+            <li><code>priceSensitivity(deltaPct)</code> is exposed as a function so the UI can chart margin against a farm-gate price shock of any size.</li>
+          </ul>
+
+          <h3 style="margin-top:26px">Confidence model</h3>
+          <p>Starts at 1.0, then:</p>
+          <ul class="const-list">
+            <li><code>&minus;0.05</code> if soil chemistry is a static point extraction (always true for this field — SoilGrids).</li>
+            <li><code>&minus;0.15</code> if the soil raster's pixel area exceeds 2&times; the declared field area. SoilGrids' 250&nbsp;m pixel &asymp; 6.25 ha vs. this field's 1 ha default → always triggers here.</li>
+            <li><code>&minus;0.10</code> per farmer-input field that fell back to a default (of <code>previous_crop</code>, <code>irrigation_type</code>, <code>priorities</code>, <code>area_ha</code>, <code>capital_available_idr_per_ha</code>).</li>
+            <li>Always appends: "GEOGLAM outlook is a regional (country-level) signal; local field conditions may vary."</li>
+          </ul>
+          <p class="muted" style="font-size:13.5px">Label: score &ge; 0.75 → <strong>High</strong>; &ge; 0.5 → <strong>Medium</strong>; else <strong>Low</strong>.</p>
+
+          <h3 style="margin-top:26px">Worked example — Scenario B (Soybean), default field state</h3>
+          <p>Climate resilience = 82, confidence = 0.80 (High).</p>
+          <div class="formula" style="font-size:15px">
+            yieldAdj = 0.70 + 0.30&times;0.82 = 0.946 &rarr; predicted yield = 1.5 &times; 0.946 = <strong>1.42 t/ha</strong><br />
+            revenue = 1,419 kg &times; 10,000 IDR/kg = <strong>14,190,000 IDR/ha</strong>; cost = 7,500,000 IDR/ha &rarr; expected = <strong>6,690,000 IDR/ha</strong><br />
+            downside = 0.35&times;0.25 + 0.45&times;0.20 + 0.20&times;0.15 = 0.2075 &rarr; low = <strong>5,301,825 IDR/ha</strong><br />
+            upside = 0.09&times;0.60 + 0.03&times;0.30 = 0.063 &rarr; high = <strong>7,111,470 IDR/ha</strong><br />
+            break-even price = 7,500,000 &divide; 1,419 = <strong>5,285 IDR/kg</strong> (vs. an actual farm-gate price of 10,000 IDR/kg)
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Scenario</th><th>Predicted yield</th><th>Margin range (IDR/ha)</th><th>Break-even price</th></tr></thead>
+              <tbody>
+                <tr><td>A — Rice (baseline)</td><td>4.26 t/ha</td><td>9,746,520 &ndash; 14,032,272 (expected 13,584,000)</td><td>2,814 IDR/kg</td></tr>
+                <tr><td>B — Soybean</td><td>1.42 t/ha</td><td>5,301,825 &ndash; 7,111,470 (expected 6,690,000)</td><td>5,285 IDR/kg</td></tr>
+                <tr><td>C — Maize</td><td>4.40 t/ha</td><td>9,912,500 &ndash; 13,663,000 (expected 13,000,000)</td><td>2,045 IDR/kg</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="muted" style="font-size:13px">
+            Note the counter-intuitive result: Rice's expected margin (13.58M) is actually higher than
+            Soybean's (6.69M) in absolute IDR/ha — Soybean wins on the weighted <em>score</em> (climate
+            resilience, water suitability, soil rotation benefit, and the farmer's stated priorities), not on
+            raw margin alone. This is exactly the "not simply chasing yield or margin" design intent from
+            problem.html — and a reason the margin range must always be shown next to the verdict, not instead
+            of it.
+          </p>
+        </section>
+
+        <!-- 7. API CONTRACT ================================================ -->
+        <section id="api">
+          <h2><span class="spec-num">7</span>API contract</h2>
+          <div class="callout danger">
+            <strong>The MVP runs entirely client-side.</strong> There is no server today. Every computation
+            described in Sections 4–6 executes synchronously in the browser, in <code>app.html</code> +
+            <code>assets/js/engine.js</code> + <code>assets/js/data.js</code>, against bundled JSON. The
+            endpoints below are the <strong>migration target</strong> for a production build — a
+            specification to implement against, not a running service.
+          </div>
+
+          <h3 style="margin-top:24px"><code>POST /field-state</code></h3>
+          <p>Mirrors <code>engine.computeFieldState()</code>: merges farmer overrides onto the stored default and returns the resolved Field State.</p>
+          <pre class="code-block">// Request
+{
+  "field_id": "poly_idn_jt_001",
+  "farmer_input": {
+    "previous_crop": "Rice",
+    "irrigation_type": "Drip",
+    "priorities": ["Save Water"],
+    "area_ha": 2.5,
+    "capital_available_idr_per_ha": 20000000
+  }
+}
+
+// Response — full field_state.json shape with farmer_input merged
+{
+  "status": "success",
+  "request_metadata": { "field_id": "poly_idn_jt_001", "location": "Jawa Timur, Indonesia", "analysis_date": "2026-09-22" },
+  "farmer_input": { "previous_crop": "Rice", "irrigation_type": "Drip", "priorities": ["Save Water"], "area_ha": 2.5, "capital_available_idr_per_ha": 20000000 },
+  "soil_chemistry": { "pH": 6.2, "organic_carbon_pct": 3.66, "soc_level": "high", "water_retention": "Medium" },
+  "live_observation": { "ndvi_current": 0.42, "ndwi_current": -0.15, "vegetation_status": "Declining / Drying" },
+  "agrometeorological_context": { "precipitation_outlook": "Below-average", "temperature_outlook": "Above-average" }
+}</pre>
+
+          <h3 style="margin-top:24px"><code>POST /scenarios</code></h3>
+          <p>Mirrors <code>engine.listScenarios()</code> / <code>buildPayload()</code>. Same request body as above.</p>
+          <pre class="code-block">// Response — scenario_engine_results array
+{
+  "status": "success",
+  "scenario_engine_results": [
+    { "scenario_id": "A", "rotation_plan": ["Rice", "Rice"],
+      "feasible": true, "scores": { "water_demand_suitability": 31, "soil_health_impact": 45,
+      "climate_resilience": 40, "farmer_priority_alignment": 25 },
+      "total": 35.3, "verdict": "Not Recommended",
+      "economics": { "predicted_yield_t_ha": 4.26,
+        "expected_net_margin_idr_per_ha": { "low": 9746520, "expected": 13584000, "high": 14032272 },
+        "break_even_price_idr_per_kg": 2814 },
+      "confidence": { "score": 0.8, "label": "High", "reasons": ["..."] },
+      "trade_off_analysis": "Planting rice again next season carries a relatively high crop-failure risk. ..." },
+    { "scenario_id": "B", "rotation_plan": ["Rice", "Soybean"], "total": 86.7, "verdict": "Highly Recommended", "...": "..." },
+    { "scenario_id": "C", "rotation_plan": ["Rice", "Maize"], "total": 67.9, "verdict": "Viable Alternative", "...": "..." }
+  ]
+}</pre>
+
+          <h3 style="margin-top:24px"><code>GET /telemetry?node_id=node_jt_001&amp;since=2026-09-23T00:00:00Z</code></h3>
+          <p>Mirrors the shape of <code>data/telemetry.json</code>.</p>
+          <pre class="code-block">{
+  "node_id": "node_jt_001",
+  "field_id": "poly_idn_jt_001",
+  "interval_minutes": 30,
+  "readings": [
+    { "timestamp": "2026-09-24T06:00:00Z", "soil_moisture_15cm_pct_vwc": 30.25,
+      "soil_moisture_40cm_pct_vwc": 27.16, "air_temp_c": 26.03, "flow_lpm": 59.4,
+      "pump_state": 1, "battery_v": 3.859, "rssi_dbm": -61.3, "sensor_fault_flag": false }
+  ]
+}</pre>
+
+          <h3 style="margin-top:24px"><code>POST /irrigation/command</code></h3>
+          <p>Server validates against the guardrails in Section 10 (manual override state, max runtime) before forwarding to the gateway.</p>
+          <pre class="code-block">// Request
+{ "node_id": "node_jt_001", "action": "open", "duration_s": 600, "requested_by": "farmer" }
+
+// Response
+{ "command_id": "cmd_00417", "accepted": true, "valve_state": "open",
+  "fail_safe_state": "closed", "verified": false,
+  "message": "Awaiting Hall-effect flow confirmation within 30s (Verify step)." }</pre>
+        </section>
+
+        <!-- 8. IOT HARDWARE SPEC =========================================== -->
+        <section id="hardware">
+          <h2><span class="spec-num">8</span>IoT hardware spec</h2>
+          <p class="lede">
+            Full interactive bill of materials, 3D explorer, and diagrams live on
+            <a href="iot-3d.html">iot-3d.html</a>. This section summarizes the numbers that matter for
+            planning, using the corrected figures published there.
+          </p>
+
+          <div class="grid-4" style="margin:16px 0">
+            <div class="kpi"><b>16.59 mAh/day</b><span>Total node draw</span></div>
+            <div class="kpi"><b>6,800 mAh</b><span>Pack (2&times; 3,400 mAh 18650, parallel)</span></div>
+            <div class="kpi"><b>4,896 mAh</b><span>Usable after de-rating (0.80 DoD &times; 0.90 heat/humidity)</span></div>
+            <div class="kpi"><b>&ge;60 days</b><span>Claimed autonomy (not the 295-day paper figure)</span></div>
+          </div>
+
+          <p><strong>Core hardware:</strong> ESP32-S3 (dual-core) + Semtech SX1262 LoRa on <strong>AS923</strong> (the correct Indonesia/SE-Asia ISM band, not US 915&nbsp;MHz); two capacitive (FDR) soil-moisture probes at 15&nbsp;cm and 40&nbsp;cm; SHT31 air temperature/humidity; 6&nbsp;V/2&nbsp;W solar panel with an MPPT/linear charge controller; IP65 enclosure with a single M12 IP68 cable gland. A separately-priced actuation point pairs one 12&nbsp;V normally-closed solenoid valve, an opto-isolated relay driver, and a Hall-effect flow meter — one actuation point can serve several sensing nodes on the same plot.</p>
+
+          <h3 style="margin-top:24px">Power budget (16.59 mAh/day total)</h3>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Mode</th><th>Current</th><th>Duration / events</th><th>Charge/day</th></tr></thead>
+              <tbody>
+                <tr><td>Deep sleep (board-level, incl. LDO + charge-controller quiescent draw)</td><td>0.25 mA</td><td>24 h continuous</td><td>6.00 mAh</td></tr>
+                <tr><td>Sense (SDI-12 probes + I&sup2;C air sensor)</td><td>60 mA</td><td>2 s &times; 48/day</td><td>1.60 mAh</td></tr>
+                <tr><td>LoRa transmit (+14 dBm, AS923)</td><td>100 mA</td><td>1.5 s &times; 48/day</td><td>2.00 mAh</td></tr>
+                <tr><td>Actuate (relay logic side only; 12V coil has its own supply)</td><td>30 mA</td><td>60 s &times; 2/day</td><td>1.00 mAh</td></tr>
+                <tr><td>Downlink RX window (Class A, two slots/uplink)</td><td>12 mA</td><td>2 s &times; 48/day</td><td>0.32 mAh</td></tr>
+                <tr><td><strong>Cell self-discharge</strong> — the largest single term at this duty cycle</td><td>&mdash;</td><td>continuous, 2.5%/month</td><td>5.67 mAh</td></tr>
+                <tr><td colspan="3"><strong>Total</strong></td><td><strong>16.59 mAh/day</strong></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="muted" style="font-size:13.5px">
+            Cell self-discharge alone is 5.67 of 16.59 mAh/day — about a third of the total load — and it
+            keeps draining the pack whether or not the node ever wakes up. Omitting it, as iot-3d.html notes,
+            is "the classic way IoT power budgets end up fictional".
+          </p>
+
+          <div class="callout info">
+            Paper autonomy at zero solar input: 4,896 &divide; 16.59 &asymp; 295 days. <strong>The claimed
+            figure is &ge;60 days</strong>, not 295 — past roughly two months the binding constraint stops
+            being energy and becomes <strong>calendar ageing, connector corrosion, and probe drift</strong>.
+            Solar income, de-rated for the wet season (2&nbsp;W &times; 1.2 effective peak-sun-hours &times;
+            75% charge-path efficiency) is &asymp;486 mAh/day, a &asymp;29&times; recharge margin over the
+            daily load even in the worst monsoon month — the panel is oversized on purpose, to recover the
+            pack after a multi-week overcast run, not merely to balance one day. Energy is not the limiting
+            factor in this design; serviceability is.
+          </div>
+
+          <h3 style="margin-top:24px">Radio link budget (AS923)</h3>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Parameter</th><th>Value</th></tr></thead>
+              <tbody>
+                <tr><td>EIRP (14 dBm TX + 2 dBi antenna)</td><td>+16 dBm</td></tr>
+                <tr><td>Receiver sensitivity (SF10, BW 125 kHz)</td><td>&minus;132 dBm</td></tr>
+                <tr><td>Link budget (max allowable path loss)</td><td>153 dB</td></tr>
+                <tr><td>Margin at 5 km (canopy/NLOS, realistic reliable range)</td><td>38.9 dB</td></tr>
+                <tr><td>Margin at 12 km (clear line-of-sight)</td><td>26.7 dB</td></tr>
+                <tr><td>Duty-cycle use</td><td>0.083% of the 1%/channel AS923 allowance (&gt;10&times; headroom)</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 style="margin-top:24px">Cost</h3>
+          <div class="grid-4">
+            <div class="kpi"><b>$80.00</b><span>Sensing node, pilot unit cost</span></div>
+            <div class="kpi"><b>$16.20</b><span>Paired actuation point (valve + relay + flow meter)</span></div>
+            <div class="kpi"><b>$96.20</b><span>Full field kit (one node + one actuation point)</span></div>
+            <div class="kpi"><b>~$16,000</b><span>200-node pilot batch (device only)</span></div>
+          </div>
+          <p class="muted" style="font-size:13px">
+            All costs are indicative pilot-quantity (100–300 unit) engineering estimates, not supplier quotes.
+            Full bill of materials, per-part rationale, and datasheet links are on
+            <a href="iot-3d.html#bom">iot-3d.html</a>.
+          </p>
+        </section>
+
+        <!-- 9. FIRMWARE STATE MACHINE ====================================== -->
+        <section id="firmware">
+          <h2><span class="spec-num">9</span>Firmware state machine</h2>
+          <p class="lede">
+            iot-3d.html documents the sense/decide/act/verify loop and the per-mode current draws and
+            timings that back Section 8's power budget. This section arranges those same numbers into a
+            fuller lifecycle for firmware implementers — no new current, duration, or event count is
+            introduced here that isn't already in the Section 8 power budget.
+          </p>
+
+          <div class="flow" aria-label="Firmware state machine" style="grid-template-columns:repeat(9, minmax(100px, 1fr))">
+            <div class="flow-step"><b><span class="step-num">1.</span> Boot</b><span>Cold/warm start, self-test SDI-12 probes + I&sup2;C air sensor, read RTC and last-known state from flash.</span></div>
+            <div class="flow-step"><b><span class="step-num">2.</span> Join</b><span>LoRaWAN OTAA join/re-join. Retries with backoff; repeated failure routes to the offline local-rule path.</span></div>
+            <div class="flow-step"><b><span class="step-num">3.</span> Sleep</b><span>Deep sleep, RTC timer running. 0.25 mA baseline, 30-min cycle (48 wakes/day).</span></div>
+            <div class="flow-step"><b><span class="step-num">4.</span> Sense</b><span>Wake, power probes + air sensor, ADC read. 2 s @ 60 mA.</span></div>
+            <div class="flow-step"><b><span class="step-num">5.</span> Evaluate</b><span>Compare against crop-stage threshold, rain probability, daily water cap; run the sensor-quality check.</span></div>
+            <div class="flow-step"><b><span class="step-num">6.</span> Transmit</b><span>LoRa uplink, +14 dBm AS923. 1.5 s @ 100 mA, then two Class A downlink RX slots (2 s @ 12 mA each).</span></div>
+            <div class="flow-step"><b><span class="step-num">7.</span> Actuate</b><span>Only if Evaluate/downlink calls for irrigation. Relay logic drive, 60 s @ 30 mA per open/close pair.</span></div>
+            <div class="flow-step"><b><span class="step-num">8.</span> Verify</b><span>Confirm real flow via the Hall-effect meter within 30 s; log volume or trip the no-flow alert.</span></div>
+            <div class="flow-step"><b><span class="step-num">9.</span> Fault</b><span>Entered from a failed self-test, sensor-quality flag, no-flow alert, or exceeded max runtime. Always resolves toward valve closed.</span></div>
+          </div>
+
+          <div class="callout" style="margin-top:20px">
+            <strong>Offline local-rule path (Section 10's "Offline local rule" guardrail):</strong> if Join
+            fails, or the uplink/downlink link is lost beyond N consecutive cycles, the node stops waiting on
+            Transmit/gateway downlinks and runs Evaluate → Act using only its own two probes and a
+            conservative pre-agreed daily water cap. It still passes through Actuate → Verify → Fault exactly
+            as normal, and re-attempts Join on every subsequent wake so it reconnects automatically once the
+            link returns. If local data is itself uncertain, the default is no action — valve stays closed.
+          </div>
+
+          <pre class="code-block">IF soil_moisture &lt; crop_threshold
+AND rain_probability_next_6h is low
+AND daily_water_limit not exceeded
+THEN open valve for N minutes
+ELSE send alert / wait</pre>
+        </section>
+
+        <!-- 10. SAFETY GUARDRAILS =========================================== -->
+        <section id="guardrails">
+          <h2><span class="spec-num">10</span>Safety guardrails</h2>
+          <p class="lede">Every guardrail below resolves to the same fail-safe state: irrigation stops and the valve returns to <strong>closed</strong> (the solenoid valve is normally-closed by construction — de-energised = closed).</p>
+
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Guardrail</th><th>Trigger condition</th><th>System response</th><th>Fail-safe state</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><strong>Manual override</strong></td>
+                  <td>Farmer flips the physical switch or sends an override command.</td>
+                  <td>Immediately halts any automatic actuation; surfaces a manual-mode banner in the app.</td>
+                  <td><span class="tag warn">Valve closed</span> until the farmer re-enables auto mode.</td>
+                </tr>
+                <tr>
+                  <td><strong>Max runtime</strong></td>
+                  <td>Valve open longer than the configured cap (e.g. 20 min).</td>
+                  <td>Controller force-closes the valve and raises a maintenance alert, regardless of the moisture reading.</td>
+                  <td><span class="tag warn">Valve closed</span>.</td>
+                </tr>
+                <tr>
+                  <td><strong>No-flow alert</strong></td>
+                  <td>Relay commands "open" but the Hall-effect flow meter reports no pulses for &gt; 30 s.</td>
+                  <td>Assumes a stuck valve, blocked line, or dry supply; aborts the cycle and flags for inspection.</td>
+                  <td><span class="tag warn">Valve commanded closed</span>, irrigation suspended until acknowledged.</td>
+                </tr>
+                <tr>
+                  <td><strong>Sensor-quality flag</strong></td>
+                  <td>A probe reading is out of physically plausible range, the two probes disagree beyond a threshold, or a reading is stale.</td>
+                  <td>Decision engine discards the suspect input, falls back to the last known-good reading, raises a maintenance flag.</td>
+                  <td>No new irrigation triggered off a flagged sensor — <span class="tag warn">valve stays/returns closed</span>.</td>
+                </tr>
+                <tr>
+                  <td><strong>Offline local rule</strong></td>
+                  <td>LoRa uplink/downlink lost beyond N cycles.</td>
+                  <td>Node reverts to the closed-loop rule entirely locally, using only its own probes and a conservative pre-agreed daily water cap.</td>
+                  <td>If local data is also uncertain, default is <span class="tag warn">no action / valve closed</span>.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- 11. PRIVACY, CONSENT & DATA GOVERNANCE ========================== -->
+        <section id="privacy">
+          <h2><span class="spec-num">11</span>Privacy, consent &amp; data governance</h2>
+          <div class="callout danger">
+            <strong>Not implemented.</strong> There is no backend, database, or aggregation pipeline in the
+            MVP — this section documents the governance model the optional Gov/NGO "needs &amp; intervention
+            map" branch (problem.html, Section 06) must satisfy before it is built, not a running system.
+          </div>
+
+          <p style="margin-top:16px">
+            Individual field-level data (crop choice, margin, soil chemistry, telemetry) belongs to the
+            farmer. The core farmer product (field-level decision &amp; action) never requires sharing it
+            with anyone else. The optional support layer only ever sees an aggregated, consent-gated view.
+          </p>
+
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Principle</th><th>Rule</th></tr></thead>
+              <tbody>
+                <tr><td><strong>Consent model</strong></td><td>A farmer's field-level data is included in any Gov/NGO aggregate only after explicit, revocable opt-in. No default inclusion.</td></tr>
+                <tr><td><strong>Anonymisation</strong></td><td><code>field_id</code> and any farmer identity are stripped before aggregation; only administrative-unit-level (e.g. village) summaries are exposed to the support layer, never a single field's raw record.</td></tr>
+                <tr><td><strong>Minimum aggregation threshold</strong></td><td>An aggregate bucket (e.g. "villages needing soil-testing support") must contain data from at least <strong>k = 5</strong> consenting farmers before it is shown, to prevent re-identification of a single participant in a small bucket.</td></tr>
+                <tr><td><strong>Retention</strong></td><td>Raw per-field Field State and telemetry are retained only as long as needed to serve that farmer's own recommendations, plus one prior season for trend continuity. De-identified aggregates may be retained longer since they carry no individual link.</td></tr>
+                <tr><td><strong>Purpose limitation</strong></td><td>Aggregated data may be used only for the stated support purposes (soil-testing prioritization, sensor-as-a-service targeting, extension-visit prioritization) — not resold, not used for enforcement, not used to police subsidy eligibility (explicitly out of scope per problem.html).</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- 12. MVP SCOPE, MILESTONES & KPIS ================================ -->
+        <section id="mvp">
+          <h2><span class="spec-num">12</span>MVP scope, milestones &amp; KPIs</h2>
+          <p class="lede">Ported directly from <a href="problem.html#mvp">problem.html</a>'s MVP plan.</p>
+
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Area</th><th>MVP scope</th><th>Not needed yet</th></tr></thead>
+              <tbody>
+                <tr><td><strong>Location</strong></td><td>One village or one farming area with 10–20 field polygons.</td><td>National scale.</td></tr>
+                <tr><td><strong>Commodities</strong></td><td>Three realistic options — rice, corn (maize), and soybean.</td><td>Dozens of crops at once (mung bean and peanut remain in the model, scoped out of the pilot — Section 5).</td></tr>
+                <tr><td><strong>NASA data</strong></td><td>HLS + GPM; POWER/SMAP as additional context (as designed — see Section 2 for what is actually wired today).</td><td>Forcing every NASA portal to integrate live.</td></tr>
+                <tr><td><strong>Soil</strong></td><td>Static data per location + one testing/manual validation pass.</td><td>Full real-time soil chemistry sensors.</td></tr>
+                <tr><td><strong>IoT</strong></td><td>2–3 pilot plots with soil moisture, flow meter, and pump/valve.</td><td>Hardware for every farmer.</td></tr>
+                <tr><td><strong>Decision engine</strong></td><td>Transparent scoring/MCDA + margin formula + sensitivity analysis.</td><td>A black-box AI that's hard to explain.</td></tr>
+                <tr><td><strong>LLM</strong></td><td>Q&amp;A and explanations grounded in engine output.</td><td>LLM acting as the sole agronomist.</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3 style="margin-top:26px">Success metrics</h3>
+          <div class="kpi-grid">
+            <div class="kpi"><b>Margin / ha</b><span>Projected vs. actual, per season.</span></div>
+            <div class="kpi"><b>Water / ha</b><span>Volume of water per phase and per outcome.</span></div>
+            <div class="kpi"><b>Prediction error</b><span>Yield, rainfall, and soil-moisture response.</span></div>
+            <div class="kpi"><b>Adoption</b><span>Recommendations understood and actually followed.</span></div>
+            <div class="kpi"><b>Data confidence</b><span>Share of decisions backed by adequate-quality input.</span></div>
+          </div>
+        </section>
+
+        <!-- 13. ASSUMPTIONS & OPEN RISKS ==================================== -->
+        <section id="assumptions">
+          <h2><span class="spec-num">13</span>Assumptions &amp; open risks</h2>
+          <p class="lede">
+            Carried over from problem.html's MVP callout, exactly as flagged there: these are hypotheses,
+            not established facts, and none of them have been checked against real farmers or extension
+            officers yet.
+          </p>
+
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Hypothesis</th><th>Status</th></tr></thead>
+              <tbody>
+                <tr><td>Farmers are permitted/willing to switch commodities from what they currently grow.</td><td><span class="badge badge-warn">Unvalidated</span></td></tr>
+                <tr><td>Seed and buyer access exist for the recommended alternative crop.</td><td><span class="badge badge-warn">Unvalidated</span></td></tr>
+                <tr><td>Farmers will accept installing and trusting field sensors.</td><td><span class="badge badge-warn">Unvalidated</span></td></tr>
+                <tr><td>Available cost/price data is good enough to compute a trustworthy margin.</td><td><span class="badge badge-warn">Unvalidated</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="callout danger">
+            <strong>Honest status:</strong> all four are unvalidated pending short interviews with farmers and
+            extension workers, exactly as problem.html states. Treat every margin figure, verdict, and
+            adoption claim in this spec as conditional on these holding true in the field.
+          </div>
+
+          <h3 style="margin-top:26px">Secondary modelling assumptions (technical, not farmer-facing)</h3>
+          <ul class="const-list">
+            <li>Soybean, mung bean, and peanut have no dedicated track in the sourced NASA Harvest calendar, so they borrow the <code>maize_rainy_season</code> or <code>maize_dry_season</code> planting window as the closest-behaving tracked crop — a documented modelling approximation, not sourced calendar data.</li>
+            <li><code>area_ha</code> and <code>capital_available_idr_per_ha</code> defaults are not sourced from the team's research PDF; they are MVP starting values so Gate 3 and the economics model have somewhere to begin.</li>
+            <li>All crop parameters (price, cost, yield) are illustrative, order-of-magnitude figures anchored to FAO/BPS/Kementan ranges, "NOT independently verified" per <code>data/crops.js</code>.</li>
+          </ul>
+        </section>
+
+        <!-- 14. REFERENCES ================================================== -->
+        <section id="references">
+          <h2><span class="spec-num">14</span>References</h2>
+          <ol class="references">
+            <li><a href="https://www.spaceappschallenge.org/2026/challenges/field-shift-adapting-farms-with-nasa-data/" target="_blank" rel="noreferrer">NASA Space Apps Challenge 2026 — Field Shift: Adapting Farms with NASA Data</a>.</li>
+            <li><a href="https://www.earthdata.nasa.gov/data/projects/hls" target="_blank" rel="noreferrer">NASA Earthdata — Harmonized Landsat and Sentinel-2 (HLS)</a>.</li>
+            <li><a href="https://www.earthdata.nasa.gov/data/catalog/ges-disc-gpm-3imerghh-07" target="_blank" rel="noreferrer">NASA Earthdata — GPM IMERG Half-Hourly Precipitation</a>.</li>
+            <li><a href="https://www.earthdata.nasa.gov/data/platforms/space-based-platforms/smap" target="_blank" rel="noreferrer">NASA Earthdata — Soil Moisture Active Passive (SMAP)</a>.</li>
+            <li><a href="https://power.larc.nasa.gov/docs/services/api/temporal/daily/" target="_blank" rel="noreferrer">NASA POWER — Daily API Documentation</a>.</li>
+            <li>Internal team draft: <em>Agrometeorology Architecture &amp; Data — FieldShift</em>, including the current Field State, scenario-engine, and explainability payload design.</li>
+            <li><a href="https://cropmonitortools.org/tools/cmet/" target="_blank" rel="noreferrer">GEOGLAM Crop Monitor Tool (CMET)</a> and the GEOGLAM Early Warning bulletin series.</li>
+            <li><a href="https://www.isric.org/explore/soilgrids" target="_blank" rel="noreferrer">SoilGrids (ISRIC — World Soil Information)</a> — explicitly a non-NASA source.</li>
+            <li><a href="https://dataspace.copernicus.eu/explore-data/data-collections/sentinel-data/sentinel-2" target="_blank" rel="noreferrer">Copernicus Sentinel-2</a>.</li>
+            <li><a href="https://harvest2market.nasaharvest.org/idn" target="_blank" rel="noreferrer">NASA Harvest — Harvest2Market, Indonesia</a>.</li>
+            <li><a href="https://www.espressif.com/sites/default/files/documentation/esp32-s3_datasheet_en.pdf" target="_blank" rel="noreferrer">Espressif ESP32-S3 datasheet</a>.</li>
+            <li><a href="https://sensirion.com/media/documents/213E6A3B/63A5A569/Datasheet_SHT3x_DIS.pdf" target="_blank" rel="noreferrer">Sensirion SHT3x (SHT31) datasheet</a>.</li>
+          </ol>
+        </section>
+
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <div class="page">
+      Concept artifact for discussion and validation. This page is generated from, and cross-checked
+      against, the code in <code>assets/js/engine.js</code>, <code>assets/js/data.js</code>,
+      <code>data/*.js</code>, and <code>iot-3d.html</code> as of 2026-09-25. Where the two disagree, the
+      running code wins and this page should be corrected.
+    </div>
+  </footer>
+</body>
+</html>
