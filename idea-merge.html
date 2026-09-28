@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="FieldShift Idea Merge combines risk-aware crop planning, climate stress tests, transparent farm economics, and read-only IoT ground truth for smallholder farmers." />
+  <title>FieldShift — Idea Merge</title>
+  <link rel="stylesheet" href="assets/css/fieldshift.css" />
+</head>
+<body>
+  <div class="topbar"><div class="page topbar-inner">
+    <a class="brand" href="index.html" style="text-decoration:none;color:inherit"><div class="brand-mark">F</div><span>FieldShift</span></a>
+    <nav aria-label="Main navigation">
+      <a href="index.html">Home</a><a href="problem.html">Problem &amp; Solution</a><a href="app.html">Prototype</a><a href="idea-merge.html" aria-current="page">Idea Merge</a><a href="iot-3d.html">IoT Ground Truth</a><a href="specs.html">Specs</a>
+    </nav><button class="print-button" onclick="window.print()">Print / Save PDF</button>
+  </div></div>
+  <main>
+    <header class="hero page">
+      <span class="eyebrow">NASA Space Apps Challenge 2026 · merged concept</span>
+      <h1>Make limited land and every farming decision count.</h1>
+      <p>Smallholder farmers with limited land can struggle to earn a stable income when water, weather, input costs, and selling prices shift. FieldShift compares feasible crop plans using NASA context, local economics, farmer constraints, and proposed field measurements.</p>
+      <div class="hero-grid">
+        <div class="card"><h2 style="font-size:30px">Problem we address</h2><p style="color:var(--muted)">Farmers need a clearer way to compare what to plant when water, weather, available capital, selling prices, and expected harvest can change. A high-yield crop does not always leave the strongest risk-adjusted income.</p><div style="margin-top:14px"><span class="tag">Feasible crop choices</span><span class="tag">Water and capital limits</span><span class="tag">Stress testing</span><span class="tag">Ground-truth evidence</span></div></div>
+        <div class="card metric-card"><div class="label">Decision objective</div><div class="big">Risk-adjusted net margin / ha</div><p>First screen for soil, calendar, water, and capital feasibility. Then rank eligible plans by margin after a transparent downside reserve.</p></div>
+      </div>
+    </header>
+    <section><div class="page">
+      <div class="section-head"><div class="section-kicker">What merges</div><h2>Three ideas, one reviewable decision.</h2><p>Stress scenarios expose weak points; economics show the trade-offs; plot measurements help check regional context.</p></div>
+      <div class="three-col">
+        <article class="card"><div class="icon">🌱</div><h3>FieldShift · choose a plan</h3><p>Use farmer constraints, crop calendar, soil context, and regional Earth observations to compare suitable crop options.</p></article>
+        <article class="card"><div class="icon">🧪</div><h3>FarmShift · test stress in 3D</h3><p>Replay 12 crop weeks in a 3D plant model. Compare the plan with one crop change under lower rainfall, limited irrigation, heat, price, and harvest assumptions.</p></article>
+        <article class="card"><div class="icon">📊</div><h3>TerraShift · add field context</h3><p>Bring water reserve, capital limits, and a qualitative profitability context into the review. Stress Lab shows no money values and runs no margin formula.</p></article>
+      </div>
+    </div></section>
+    <section><div class="page">
+      <div class="section-head"><div class="section-kicker">Decision flow</div><h2>Measure, compare, review.</h2></div>
+      <div class="flow" aria-label="FieldShift Idea Merge data flow" style="grid-template-columns:repeat(6,minmax(135px,1fr))">
+        <div class="flow-step"><b>1. Farmer &amp; plot</b><span>Crop history, area, capital, water budget, and priorities.</span></div>
+        <div class="flow-step"><b>2. Earth data</b><span>NASA observations give regional weather and vegetation context.</span></div>
+        <div class="flow-step"><b>3. IoT ground truth</b><span>Probe, microclimate, flow, pump status, and surface photos.</span></div>
+        <div class="flow-step"><b>4. Feasible plan</b><span>Screen water and capital limits; compare crop options.</span></div>
+        <div class="flow-step"><b>5. Stress Lab</b><span>Replay the season in 3D and test one crop change.</span></div>
+        <div class="flow-step"><b>6. Farmer review</b><span>Review risk, reserve, assumptions, and evidence before deciding.</span></div>
+      </div>
+      <div class="callout info"><strong>Evidence boundary:</strong> NASA data is regional context. Soil probes measure root-zone moisture; camera images show the surface only. Synthetic prototype data is labeled and does not claim live sensing or validated crop advice.</div>
+    </div></section>
+    <section><div class="page">
+      <div class="section-head"><div class="section-kicker">Student pilot scope</div><h2>Small enough to build in parallel.</h2></div>
+      <div class="two-col">
+        <div class="card"><h3>App workstream</h3><ul class="plain-list"><li>One next-season crop decision for one example field.</li><li>Four climate presets, editable rainfall/irrigation/heat, and a 12-week 3D plant replay.</li><li>Compare the plan baseline with one crop change; price and harvest remain separate assumptions.</li><li>Stress Lab uses qualitative context and nonfinancial indices; plan ranking keeps its separate economic model.</li></ul><a href="app.html">Open prototype →</a></div>
+        <div class="card"><h3>Device workstream</h3><ul class="plain-list"><li>One read-only pilot kit: Pi Zero 2 W, surface camera, calibratable moisture probe, air sensor, flow meter, isolated status input.</li><li>Realtime and batch sampling paths, local queue when offline.</li><li>Timestamped JSON contract shared with app workstream.</li><li>Calibrate the probe locally; keep pump review manual.</li></ul><a href="iot-3d.html">Inspect IoT Ground Truth →</a></div>
+      </div>
+      <p class="muted" style="margin-top:14px">All crop, price, weather, and sensor values in current prototype are illustrative. Test local market access, crop suitability, probe calibration, and farmer understanding before field use.</p>
+    </div></section>
+  </main>
+  <footer><div class="page">FieldShift Idea Merge is a concept prototype for discussion and validation, not a guarantee of harvest or profit.</div></footer>
+</body>
+</html>

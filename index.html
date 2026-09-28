@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="description" content="FieldShift — a NASA Space Apps Challenge 2026 project turning Earth observation, local data, and field sensors into explainable crop and resource decisions for smallholder farmers." />
+  <meta name="description" content="FieldShift helps smallholder farmers compare feasible crop plans by risk-adjusted margin, using NASA context, local data, and read-only field measurements." />
   <title>FieldShift — Make every square meter count</title>
   <link rel="stylesheet" href="assets/css/fieldshift.css" />
 </head>
@@ -17,7 +17,8 @@
         <a href="index.html" aria-current="page">Home</a>
         <a href="problem.html">Problem &amp; Solution</a>
         <a href="app.html">Prototype</a>
-        <a href="iot-3d.html">IoT 3D</a>
+        <a href="idea-merge.html">Idea Merge</a>
+        <a href="iot-3d.html">IoT Ground Truth</a>
         <a href="specs.html">Specs</a>
       </nav>
       <button class="print-button" onclick="window.print()">Print / Save PDF</button>
@@ -31,7 +32,7 @@
       <p>
         FieldShift helps smallholder farmers make every square meter count by turning NASA Earth
         observations, local soil and market data, and field sensors into explainable crop choices
-        and automated resource actions.
+        and a one-season stress test. Read-only field sensors provide ground truth; farmers review every plan.
       </p>
 
       <div class="hero-grid">
@@ -39,15 +40,16 @@
           <h2 style="font-size:30px">What we're optimizing</h2>
           <p style="color:var(--muted); margin-bottom:16px">
             Not expanding land, and not rebuilding the whole supply chain. FieldShift optimizes the
-            decisions a farmer can still control: <strong>what to plant, when to plant it, how much
-            water and input to use, and when to act.</strong>
+            decisions a farmer can still choose: <strong>what to plant next, how much water and capital
+            a plan needs, and how margin changes under stated assumptions.</strong>
           </p>
           <span class="tag">Crop selection</span>
           <span class="tag">Crop rotation</span>
           <span class="tag">Net margin / ha</span>
           <span class="tag">Water efficiency</span>
           <span class="tag">Explainable recommendation</span>
-          <span class="tag">IoT action loop</span>
+          <span class="tag">IoT ground truth</span>
+          <span class="tag">Stress Lab</span>
         </div>
         <div class="card metric-card">
           <div class="label">North-star metric</div>
@@ -61,11 +63,11 @@
       <div class="page">
         <div class="section-head">
           <div class="section-kicker">Explore the project</div>
-          <h2>Four views into FieldShift.</h2>
-          <p>Start with the problem framing, then see the decision engine running, inspect the field hardware, or dig into the technical specs.</p>
+          <h2>Five views into FieldShift.</h2>
+          <p>Review the farmer problem, merged concept, one-season decision prototype, read-only field kit, and technical rules.</p>
         </div>
 
-        <div class="grid-4">
+        <div class="grid-4" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">
           <a class="mini-card" href="problem.html" style="text-decoration:none;color:inherit;display:block">
             <div class="icon">🗺️</div>
             <h3>Problem &amp; Solution</h3>
@@ -74,17 +76,22 @@
           <a class="mini-card" href="app.html" style="text-decoration:none;color:inherit;display:block">
             <div class="icon">🧮</div>
             <h3>Live Prototype</h3>
-            <p>A working decision engine: field state → scenarios → action plan → IoT monitor.</p>
+            <p>Compare feasible crop plans, then replay crop stress in a 3D one-season lab.</p>
+          </a>
+          <a class="mini-card" href="idea-merge.html" style="text-decoration:none;color:inherit;display:block">
+            <div class="icon">🌱</div>
+            <h3>Idea Merge</h3>
+            <p>How FieldShift, FarmShift, and TerraShift combine around farmer income resilience.</p>
           </a>
           <a class="mini-card" href="iot-3d.html" style="text-decoration:none;color:inherit;display:block">
             <div class="icon">📡</div>
             <h3>IoT 3D Design</h3>
-            <p>Explore the FieldShift Node v1 hardware in 3D, with BOM and power budget.</p>
+            <p>Explore one compact, read-only pilot kit with camera and ground-truth sensors.</p>
           </a>
           <a class="mini-card" href="specs.html" style="text-decoration:none;color:inherit;display:block">
             <div class="icon">📐</div>
             <h3>Technical Specs</h3>
-            <p>Data contracts, scoring formulas, hardware spec and safety guardrails.</p>
+            <p>Data contract, feasibility gates, risk-adjusted margin, and kit scope.</p>
           </a>
         </div>
       </div>
@@ -94,8 +101,8 @@
       <div class="page">
         <div class="section-head">
           <div class="section-kicker">How it works</div>
-          <h2>From data → decision → action → learning.</h2>
-          <p>The platform combines Earth observation, field profile, local economics, and field sensors. A scenario engine computes the options; an LLM explains the results in plain language; IoT helps carry out the action.</p>
+          <h2>From field evidence → feasible plan → farmer review.</h2>
+          <p>NASA and local data frame the season; a transparent engine checks soil, calendar, water, and capital, then ranks feasible crops by margin after an explicit downside reserve. IoT records ground truth only.</p>
         </div>
 
         <div class="flow" aria-label="FieldShift solution flow">
@@ -104,8 +111,8 @@
           <div class="flow-step"><b>3. IoT Ground Truth</b><span>Soil moisture, microclimate, water flow, pump status.</span></div>
           <div class="flow-step"><b>4. Scenario Engine</b><span>Test agronomic feasibility and rotation for each crop.</span></div>
           <div class="flow-step"><b>5. Margin &amp; Risk</b><span>Compute net income, water needs, and risk penalties.</span></div>
-          <div class="flow-step llm"><b>6. LLM Explainability</b><span>Explains reasons, trade-offs, and next steps; not the primary scoring driver.</span></div>
-          <div class="flow-step"><b>7. Action Loop</b><span>Alerts, irrigation control, outcome monitoring, and recommendation updates.</span></div>
+          <div class="flow-step"><b>6. Explainable result</b><span>Shows gates, assumptions, margin, downside case, and ranking reason.</span></div>
+          <div class="flow-step"><b>7. Farmer review</b><span>Review one crop change in the 3D Stress Lab; no pump or valve commands.</span></div>
         </div>
       </div>
     </section>

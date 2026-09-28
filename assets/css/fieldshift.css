@@ -118,6 +118,7 @@ h1 {
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   padding: 24px;
+  min-width: 0;
 }
 .card h2, .card h3 { margin-top: 0; }
 .metric-card {
@@ -181,7 +182,7 @@ td strong { color: var(--text); }
 
 .two-col { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
 .three-col { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
-.mini-card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 19px; }
+.mini-card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 19px; min-width: 0; }
 .mini-card h3 { margin: 0 0 7px; }
 .mini-card p { margin: 0; color: var(--muted); }
 .icon { font-size: 26px; margin-bottom: 10px; }
@@ -209,6 +210,8 @@ td strong { color: var(--text); }
   grid-template-columns: repeat(7, minmax(130px, 1fr));
   gap: 10px;
   align-items: stretch;
+  min-width: 0;
+  max-width: 100%;
   overflow-x: auto;
   padding: 4px 0 10px;
 }
@@ -336,7 +339,9 @@ footer { padding: 24px 0 50px; color: var(--muted); font-size: 13px; }
   .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .branch { grid-template-columns: 1fr; }
   .branch-arrow { transform: rotate(90deg); }
-  nav { display: none; }
+  .topbar-inner { flex-wrap: wrap; padding-top: 8px; }
+  .topbar nav { display: flex; order: 3; flex: 0 1 100%; max-width: 100%; flex-wrap: nowrap; overflow-x: auto; white-space: nowrap; padding: 4px 0 8px; }
+  .topbar nav a { flex: 0 0 auto; }
   .layer { grid-template-columns: 1fr; gap: 5px; }
 }
 
@@ -586,6 +591,104 @@ nav a[aria-current="page"] { color: var(--primary); }
   border-radius: 999px;
   background: var(--primary);
   width: calc(var(--gauge-value) * 100%);
+}
+
+/* Climate stress lab: compact controls beside the illustrative 3D crop beds. */
+.stress-lab-layout {
+  display: grid;
+  grid-template-columns: minmax(285px, 0.78fr) minmax(0, 1.22fr);
+  gap: 18px;
+  align-items: start;
+}
+.stress-control-stack, .stress-scene-column { min-width: 0; display: grid; gap: 16px; }
+.stress-controls, .stress-timeline, .stress-scene-card { padding: 18px; }
+.stress-presets .chip, .stress-overlay-controls .chip, [data-telemetry-mode] {
+  border: 1px solid var(--line); border-radius: 999px; padding: 8px 11px;
+  background: var(--surface); color: var(--primary); font: inherit;
+  font-size: 12px; font-weight: 750; cursor: pointer;
+}
+.stress-presets .chip.active, .stress-overlay-controls .chip.active, [data-telemetry-mode].active {
+  border-color: var(--primary); background: var(--primary); color: #fff;
+}
+.stress-controls h3, .stress-timeline h3, .stress-scene-head h3, .stress-result-card h3 {
+  margin: 0;
+  font-size: 17px;
+  letter-spacing: -0.02em;
+}
+.stress-presets, .stress-overlay-controls { display: flex; flex-wrap: wrap; gap: 7px; }
+.stress-controls .stress-presets { margin-top: 13px; }
+.stress-select-row { display: grid; gap: 6px; margin: 16px 0 14px; }
+.stress-select-row label { font-size: 13px; font-weight: 750; }
+.stress-select-row select {
+  width: 100%; min-height: 40px; padding: 8px 11px;
+  border: 1px solid var(--line); border-radius: 10px;
+  background: var(--surface); color: var(--text); font: inherit;
+}
+.stress-sliders { display: grid; gap: 12px; }
+.stress-sliders label { display: block; font-size: 12px; font-weight: 700; color: var(--muted); }
+.stress-sliders output { float: right; color: var(--primary); font-size: 12px; font-weight: 800; }
+.stress-sliders input[type="range"], .stress-play-row input[type="range"] {
+  display: block; width: 100%; margin: 7px 0 0; accent-color: var(--primary);
+}
+.stress-method-note { margin: 14px 0 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.stress-timeline-head, .stress-scene-head, .stress-result-top {
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;
+}
+.stress-timeline-head { align-items: center; }
+.stress-play-row { display: flex; align-items: center; gap: 12px; margin-top: 14px; }
+.stress-play {
+  flex: 0 0 auto; border: 1px solid var(--line); border-radius: 999px;
+  padding: 7px 14px; color: var(--primary); background: var(--surface-2);
+  font: inherit; font-size: 13px; font-weight: 800; cursor: pointer;
+}
+.stress-week-labels { display: flex; justify-content: space-between; margin: 1px 0 13px 58px; color: var(--muted); font-size: 11px; }
+.stress-overlay-controls { padding-top: 12px; border-top: 1px solid var(--line); }
+.stress-overlay-controls .chip { padding: 6px 10px; font-size: 12px; }
+.stress-scene-head { align-items: center; margin-bottom: 13px; }
+.stress-scene-head .section-kicker { margin-bottom: 3px; }
+.stress-scene-head > .tag { flex: 0 0 auto; }
+.stress-scene-labels { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+.stress-scene-labels span { padding: 7px 10px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface-2); color: var(--primary); font-size: 12px; font-weight: 800; text-align: center; }
+.stress-scene-viewport {
+  position: relative; min-height: 340px; height: clamp(340px, 38vw, 500px);
+  overflow: hidden; border: 1px solid var(--line); border-radius: 13px;
+  background: linear-gradient(180deg, #edf4ed 0%, #f8f6ee 73%, #e4e9dd 100%);
+}
+#stress-canvas { display: block; width: 100%; height: 100%; outline: none; touch-action: pan-y; }
+.stress-scene-status {
+  position: absolute; right: 10px; bottom: 10px; max-width: calc(100% - 20px);
+  padding: 5px 9px; border-radius: 999px; background: rgba(255,255,255,0.88);
+  color: var(--muted); font-size: 11px; pointer-events: none;
+}
+.stress-scene-caption { margin: 10px 0 0; font-size: 12px; }
+.stress-results { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.stress-result-card, .stress-context-card { min-width: 0; padding: 15px; }
+.stress-result-top h3 { margin-top: 3px; }
+.stress-risk-pill { padding: 5px 9px; border-radius: 999px; font-size: 11px; font-weight: 800; white-space: nowrap; }
+.risk-low { color: var(--primary); background: var(--surface-2); }
+.risk-moderate { color: #76550f; background: var(--accent-soft); }
+.risk-high { color: var(--danger); background: var(--danger-soft); }
+.stress-result-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 12px; margin: 14px 0 0; }
+.stress-result-metrics div { min-width: 0; }
+.stress-result-metrics dt { color: var(--muted); font-size: 11px; }
+.stress-result-metrics dd { margin: 2px 0 0; font-size: 14px; font-weight: 800; overflow-wrap: anywhere; }
+.stress-result-metrics small { color: var(--muted); font-size: 10px; font-weight: 600; }
+.stress-context-card { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.stress-context-card div { display: grid; align-content: start; gap: 4px; min-width: 0; }
+.stress-context-card span, .stress-context-card small { color: var(--muted); font-size: 11px; }
+.stress-context-card b { font-size: 13px; overflow-wrap: anywhere; }
+@media (max-width: 900px) {
+  .stress-lab-layout { grid-template-columns: 1fr; }
+  .stress-control-stack { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+}
+@media (max-width: 580px) {
+  .stress-control-stack { grid-template-columns: 1fr; }
+  .stress-controls, .stress-timeline, .stress-scene-card { padding: 14px; }
+  .stress-scene-head { align-items: flex-start; flex-direction: column; }
+  .stress-scene-viewport { min-height: 300px; height: 320px; }
+  .stress-results { grid-template-columns: 1fr; }
+  .stress-context-card { grid-column: auto; grid-template-columns: 1fr; gap: 12px; }
+  .stress-timeline-head { align-items: flex-start; flex-direction: column; }
 }
 
 @media print {

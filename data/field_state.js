@@ -23,11 +23,11 @@ window.FS_DATA.field_state = {
     previous_crop: "Rice",
     irrigation_type: "Rainfed",
     priorities: ["Save Water", "Reduce Climate Risk"],
-    // Not sourced from the PDF — MVP default assumptions so the capital-gate and
-    // economics math have somewhere to start from. Documented so a reviewer can
-    // sanity-check them; the UI should let the farmer edit both.
+    // Not sourced from the PDF — MVP starting assumptions for capital and water.
+    // Rainfed default has zero supplemental irrigation budget; the UI exposes both.
     area_ha: 1,
-    capital_available_idr_per_ha: 15000000
+    capital_available_idr_per_ha: 15000000,
+    water_budget_mm: 0
   },
 
   soil_chemistry: {

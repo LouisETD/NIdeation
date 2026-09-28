@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="description" content="FieldShift interactive prototype — field setup, live field state, ranked crop-rotation scenarios, an action plan, and an IoT monitor with a closed-loop irrigation demo." />
+  <meta name="description" content="FieldShift Idea Merge prototype — compare feasible crop plans under climate, water, price, and yield stress; inspect read-only IoT ground truth." />
   <title>FieldShift — Interactive Prototype</title>
   <link rel="stylesheet" href="assets/css/fieldshift.css" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
@@ -136,7 +136,7 @@
     }
     .modal-copy-btn.copied { background: var(--surface-2); color: var(--primary); border-color: #cfe3d5; }
 
-    /* --- Action plan tab --------------------------------------------------------- */
+    /* --- Farmer-reviewed plan tab ----------------------------------------------- */
     .plan-phase-table th, .plan-phase-table td { font-size: 13px; }
     .milestone-list, .support-gap-list { margin: 0; padding-left: 20px; }
     .milestone-list li, .support-gap-list li { margin: 8px 0; }
@@ -144,34 +144,13 @@
 
     /* --- IoT tab ------------------------------------------------------------- */
     .iot-chart-wrap { position: relative; height: 260px; }
-    .guardrail-row { display: flex; flex-wrap: wrap; gap: 10px; margin: 14px 0; }
-    .guardrail-chip {
-      display: inline-flex; align-items: center; gap: 7px; padding: 8px 13px; border-radius: 999px;
-      border: 1px solid var(--line); background: var(--surface); font-size: 12px; font-weight: 800;
-      transition: background 0.25s ease, border-color 0.25s ease, color 0.25s ease;
-    }
-    .guardrail-chip .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); flex: none; }
-    .guardrail-chip.state-ok { background: var(--surface-2); color: var(--primary); border-color: #cfe3d5; }
-    .guardrail-chip.state-ok .dot { background: var(--primary); }
-    .guardrail-chip.state-tripped { background: var(--danger-soft); color: var(--danger); border-color: #f0c7c1; }
-    .guardrail-chip.state-tripped .dot { background: var(--danger); }
-    .guardrail-chip.state-checking { background: var(--accent-soft); color: #76550f; border-color: #efd795; }
-    .guardrail-chip.state-checking .dot { background: var(--accent); animation: fs-pulse 0.9s infinite; }
-    @keyframes fs-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
-    .cycle-controls { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin: 14px 0; }
-    .cycle-btn {
-      border: 0; background: linear-gradient(135deg, var(--primary), var(--primary-2)); color: #fff;
-      border-radius: 999px; padding: 11px 22px; font: inherit; font-weight: 800; font-size: 14px; cursor: pointer;
-    }
-    .cycle-btn:disabled { opacity: 0.6; cursor: not-allowed; }
-    .manual-override-toggle { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; }
-    .flow-step.active { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(35,92,58,0.25); }
-    .cycle-log { margin: 12px 0 0; padding: 14px 16px; background: var(--surface-2); border-radius: 14px; font-size: 13px; min-height: 26px; }
-    .cycle-log p { margin: 4px 0; }
-    .valve-visual { display: flex; align-items: center; gap: 10px; margin-top: 10px; font-size: 13px; font-weight: 700; }
-    .valve-dot { width: 14px; height: 14px; border-radius: 50%; background: var(--muted); transition: background 0.3s ease, box-shadow 0.3s ease; }
-    .valve-dot.open { background: var(--primary); box-shadow: 0 0 0 4px rgba(35,92,58,0.18); }
-
+    .telemetry-status-row { padding: 10px 12px; background: var(--surface-2); border-radius: 10px; }
+    .telemetry-status-row span { color: var(--muted); font-size: 12px; }
+    .telemetry-status-row strong { display: block; margin: 2px 0 0; font-size: 14px; }
+    #telemetry-status { display: grid; gap: 8px; margin-bottom: 12px; }
+    .surface-demo { min-height: 160px; margin: 10px 0; border-radius: 14px; display: grid; align-content: center; justify-items: center; gap: 8px; color: #f5f1dc; background: repeating-linear-gradient(165deg,#806247 0 14px,#715239 14px 28px,#927252 28px 43px); text-align: center; }
+    .surface-demo span { font-size: 11px; letter-spacing: .14em; font-weight: 850; }
+    .surface-demo small { color: #fff9; }
     button:focus-visible, input:focus-visible, a:focus-visible, [tabindex]:focus-visible {
       outline: 2px solid var(--info); outline-offset: 2px;
     }
@@ -193,7 +172,8 @@
         <a href="index.html">Home</a>
         <a href="problem.html">Problem &amp; Solution</a>
         <a href="app.html" aria-current="page">Prototype</a>
-        <a href="iot-3d.html">IoT 3D</a>
+        <a href="idea-merge.html">Idea Merge</a>
+        <a href="iot-3d.html">IoT Ground Truth</a>
         <a href="specs.html">Specs</a>
       </nav>
       <button class="print-button" onclick="window.print()">Print / Save PDF</button>
@@ -221,8 +201,9 @@
         <button type="button" class="tab-btn" role="tab" id="tab-btn-setup" aria-selected="true" aria-controls="tab-panel-setup" tabindex="0">1. Field Setup</button>
         <button type="button" class="tab-btn" role="tab" id="tab-btn-state" aria-selected="false" aria-controls="tab-panel-state" tabindex="-1">2. Field State</button>
         <button type="button" class="tab-btn" role="tab" id="tab-btn-scenarios" aria-selected="false" aria-controls="tab-panel-scenarios" tabindex="-1">3. Scenarios</button>
-        <button type="button" class="tab-btn" role="tab" id="tab-btn-plan" aria-selected="false" aria-controls="tab-panel-plan" tabindex="-1">4. Action Plan</button>
-        <button type="button" class="tab-btn" role="tab" id="tab-btn-iot" aria-selected="false" aria-controls="tab-panel-iot" tabindex="-1">5. IoT Monitor</button>
+        <button type="button" class="tab-btn" role="tab" id="tab-btn-plan" aria-selected="false" aria-controls="tab-panel-plan" tabindex="-1">4. Plan</button>
+        <button type="button" class="tab-btn" role="tab" id="tab-btn-iot" aria-selected="false" aria-controls="tab-panel-iot" tabindex="-1">5. IoT Ground Truth</button>
+        <button type="button" class="tab-btn" role="tab" id="tab-btn-stress" aria-selected="false" aria-controls="tab-panel-stress" tabindex="-1">6. Stress Lab</button>
       </div>
 
       <!-- ===================== TAB 1 — FIELD SETUP ===================== -->
@@ -230,7 +211,7 @@
         <div class="section-head">
           <div class="section-kicker">Field setup</div>
           <h2>poly_idn_jt_001 — Jawa Timur</h2>
-          <p>Every control below feeds the decision engine live. Change anything and the Field State, Scenarios and Action Plan tabs recompute immediately.</p>
+          <p>Every control below updates the decision engine. Field State, Scenarios, Plan, and Stress Lab recompute immediately.</p>
         </div>
         <div class="setup-layout">
           <div>
@@ -259,6 +240,10 @@
             <div class="form-row">
               <label for="input-capital">Available capital (IDR per hectare)</label>
               <input type="number" id="input-capital" min="0" step="500000" />
+            </div>
+            <div class="form-row">
+              <label for="input-water-budget">Seasonal irrigation budget (mm)</label>
+              <input type="number" id="input-water-budget" min="0" max="1600" step="25" />
             </div>
             <div class="form-row">
               <label id="priorities-label">Priorities (select any)</label>
@@ -301,7 +286,7 @@
         <div class="section-head">
           <div class="section-kicker">Scenario comparison</div>
           <h2>Three rotation options, ranked.</h2>
-          <p>Every number below — sub-scores, verdict, economics — comes straight out of <code>FS.engine</code>. Nothing here is invented in the UI.</p>
+          <p>Options sort by feasibility, then risk-adjusted net margin per hectare. Agronomic scores explain trade-offs; demo prices and yields remain assumptions.</p>
         </div>
         <div class="scenario-toolbar">
           <button type="button" class="view-payload-btn" id="btn-view-payload">View payload (JSON)</button>
@@ -309,63 +294,105 @@
         <div class="scenario-grid" id="scenario-grid"></div>
       </section>
 
-      <!-- ===================== TAB 4 — ACTION PLAN ===================== -->
+      <!-- ===================== TAB 4 — PLAN ===================== -->
       <section id="tab-panel-plan" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-plan" tabindex="0" hidden>
         <div class="section-head">
-          <div class="section-kicker">Action plan</div>
-          <h2>What to do with the winning scenario.</h2>
+          <div class="section-kicker">Next-season plan</div>
+          <h2>Review the winning scenario before planting.</h2>
           <p>Derived from the top-ranked feasible scenario on the Scenarios tab. Support gaps are listed as identified needs — not promises this system can fulfil on its own.</p>
         </div>
         <div id="plan-content"></div>
       </section>
 
-      <!-- ===================== TAB 5 — IOT MONITOR ===================== -->
+      <!-- ===================== TAB 5 — IOT GROUND TRUTH ===================== -->
       <section id="tab-panel-iot" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-iot" tabindex="0" hidden>
         <div class="section-head">
-          <div class="section-kicker">IoT monitor</div>
-          <h2>node_jt_001 — 48 hours of field telemetry.</h2>
+          <div class="section-kicker">Read-only pilot kit · simulated telemetry</div>
+          <h2>Field measurements inform the plan. They never control a pump.</h2>
           <p id="telemetry-source-note" class="muted"></p>
+        </div>
+        <div class="stress-controls card">
+          <div class="stress-presets" role="group" aria-label="Telemetry delivery mode">
+            <button type="button" class="chip active" data-telemetry-mode="realtime">Realtime mode</button>
+            <button type="button" class="chip" data-telemetry-mode="batch">Batch mode</button>
+          </div>
+          <p id="telemetry-mode-note" class="muted"></p>
         </div>
         <div class="grid-2" style="margin-bottom:18px">
           <div class="card">
-            <h3 style="margin-top:0">Soil moisture &amp; irrigation flow</h3>
+            <h3 style="margin-top:0">Soil moisture &amp; water flow</h3>
             <div class="iot-chart-wrap"><canvas id="chart-moisture-flow"></canvas></div>
           </div>
           <div class="card">
-            <h3 style="margin-top:0">Air temperature, humidity &amp; battery</h3>
-            <div class="iot-chart-wrap"><canvas id="chart-temp-battery"></canvas></div>
+            <h3 style="margin-top:0">Microclimate</h3>
+            <div class="iot-chart-wrap"><canvas id="chart-microclimate"></canvas></div>
           </div>
         </div>
+        <div class="grid-2">
+          <div class="card"><h3>Surface image</h3><div class="surface-demo" role="img" aria-label="Illustrative surface view, not a captured camera image"><span>CAMERA VIEW</span><b>Illustrative soil surface</b><small>No camera image in this demo dataset</small></div><p class="muted">Camera records visible surface condition. Probe measures below-ground moisture.</p></div>
+          <div class="card"><h3>Pump and data quality</h3><div id="telemetry-status"></div><p class="muted">Pump state is read from an isolated status contact. No command output, valve control, or automatic action exists.</p></div>
+        </div>
+        <div class="callout info"><strong>Ground truth limits:</strong> demo telemetry is synthetic. Local sensor calibration and field sampling are required before readings guide real decisions.</div>
+      </section>
 
-        <div class="card">
-          <h3 style="margin-top:0">Closed-loop rule</h3>
-          <pre class="code-block">IF soil_moisture &lt; crop_threshold
-AND rain_probability_next_6h is low
-AND daily_water_limit not exceeded
-THEN open valve for N minutes
-ELSE send alert / wait</pre>
+      <!-- ===================== TAB 6 — STRESS LAB ===================== -->
+      <section id="tab-panel-stress" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-stress" tabindex="0" hidden>
+        <div class="section-head">
+          <div class="section-kicker">FarmShift climate stress · TerraShift field context</div>
+          <h2>See how one crop change handles a rough season.</h2>
+          <p>Replay 12 illustrative crop weeks. Compare the plan with one crop change under lower rainfall, limited irrigation, or heat. Plant condition responds to climate; harvest and price remain separate user assumptions.</p>
+        </div>
 
-          <div class="flow" id="scda-flow" aria-label="Sense, Decide, Act, Verify cycle" style="grid-template-columns:repeat(4, minmax(140px, 1fr))">
-            <div class="flow-step" id="step-sense"><b>1. Sense</b><span>Read 15cm &amp; 40cm probes, check sensor quality.</span></div>
-            <div class="flow-step" id="step-decide"><b>2. Decide</b><span>Compare against threshold, rain outlook and daily cap.</span></div>
-            <div class="flow-step" id="step-act"><b>3. Act</b><span>Open the valve for N minutes, or alert and wait.</span></div>
-            <div class="flow-step" id="step-verify"><b>4. Verify</b><span>Confirm real flow before closing out the cycle.</span></div>
+        <div class="stress-lab-layout">
+          <div class="stress-control-stack">
+            <section class="card stress-controls" aria-labelledby="stress-scenario-title">
+              <h3 id="stress-scenario-title">1. Choose a stress case</h3>
+              <div class="stress-presets" role="group" aria-label="Climate stress case">
+                <button type="button" class="chip active" data-stress="normal" aria-pressed="true">Normal</button>
+                <button type="button" class="chip" data-stress="dry" aria-pressed="false">Rainfall drop</button>
+                <button type="button" class="chip" data-stress="limited" aria-pressed="false">Limited irrigation</button>
+                <button type="button" class="chip" data-stress="hot_dry" aria-pressed="false">Hot and dry</button>
+              </div>
+              <div class="stress-select-row">
+                <label for="stress-adapted-crop">One-crop change</label>
+                <select id="stress-adapted-crop"></select>
+              </div>
+              <div class="stress-sliders">
+                <label for="stress-rainfall">Rainfall vs normal <output id="stress-rainfall-value">100%</output><input id="stress-rainfall" data-stress-input="rainfall_pct" type="range" min="0" max="120" step="5" value="100" /></label>
+                <label for="stress-irrigation">Irrigation available <output id="stress-irrigation-value">100%</output><input id="stress-irrigation" data-stress-input="irrigation_pct" type="range" min="0" max="120" step="5" value="100" /></label>
+                <label for="stress-temperature">Temperature anomaly <output id="stress-temperature-value">+0°C</output><input id="stress-temperature" data-stress-input="temperature_c" type="range" min="0" max="6" step="0.5" value="0" /></label>
+                <label for="stress-price">Sale price assumption <output id="stress-price-value">0%</output><input id="stress-price" data-stress-input="price_change_pct" type="range" min="-50" max="30" step="5" value="0" /></label>
+                <label for="stress-yield">Harvest assumption <output id="stress-yield-value">0%</output><input id="stress-yield" data-stress-input="yield_change_pct" type="range" min="-50" max="30" step="5" value="0" /></label>
+              </div>
+              <p class="stress-method-note">Climate changes plant stress. Harvest slider is an explicit assumption; rainfall alone does not change it. Price slider gives context only. No revenue, margin, or money formula runs here.</p>
+            </section>
+
+            <section class="card stress-timeline" aria-labelledby="stress-timeline-title">
+              <div class="stress-timeline-head"><h3 id="stress-timeline-title">2. Replay the season</h3><span id="stress-week-label" class="tag">Week 7 · reproductive stage</span></div>
+              <div class="stress-play-row">
+                <button type="button" id="stress-play" class="stress-play" aria-label="Play season replay">Play</button>
+                <input id="stress-week" type="range" min="1" max="12" step="1" value="7" aria-label="Simulation week" />
+              </div>
+              <div class="stress-week-labels"><span>Week 1</span><span>Week 12</span></div>
+              <div class="stress-overlay-controls" role="group" aria-label="3D visualization overlay">
+                <button type="button" class="chip active" data-stress-overlay="condition" aria-pressed="true">Plant condition</button>
+                <button type="button" class="chip" data-stress-overlay="water" aria-pressed="false">Water reserve</button>
+                <button type="button" class="chip" data-stress-overlay="irrigation" aria-pressed="false">Irrigation</button>
+              </div>
+            </section>
           </div>
 
-          <div class="cycle-controls">
-            <button type="button" class="cycle-btn" id="btn-run-cycle">Run cycle</button>
-            <label class="manual-override-toggle"><input type="checkbox" id="input-manual-override" /> Manual override (halt auto irrigation)</label>
-          </div>
-
-          <div class="guardrail-row" id="guardrail-row"></div>
-
-          <div class="valve-visual">
-            <span class="valve-dot" id="valve-dot"></span>
-            <span id="valve-label">Valve closed</span>
-          </div>
-
-          <div class="cycle-log" id="cycle-log" aria-live="polite">
-            <p class="muted">Press "Run cycle" to evaluate the rule against real telemetry, including the sensor-fault window.</p>
+          <div class="stress-scene-column">
+            <section class="card stress-scene-card" aria-labelledby="stress-scene-title">
+              <div class="stress-scene-head"><div><div class="section-kicker">Interactive 3D field model</div><h3 id="stress-scene-title">Plan baseline vs one crop change</h3></div><span class="tag">Illustrative · not a yield forecast</span></div>
+              <div class="stress-scene-labels"><span id="stress-baseline-label">Plan baseline</span><span id="stress-adapted-label">One-crop change</span></div>
+              <div class="stress-scene-viewport" id="stress-scene-viewport">
+                <canvas id="stress-canvas" aria-label="Interactive 3D crop stress comparison"></canvas>
+                <div id="stress-scene-status" class="stress-scene-status" role="status">Preparing illustrative crop model…</div>
+              </div>
+              <p id="stress-summary" class="muted stress-scene-caption">The model highlights changing canopy condition across the season. Rotate and zoom the 3D plot.</p>
+            </section>
+            <div id="stress-results" class="stress-results" aria-live="polite"></div>
           </div>
         </div>
       </section>
@@ -375,7 +402,7 @@ ELSE send alert / wait</pre>
   <footer>
     <div class="page">
       Interactive prototype for discussion and validation. All scoring is produced by the deterministic decision
-      engine (<code>assets/js/engine.js</code>) — nothing here is generated by an LLM. Demo/live data provenance is
+      engine (<code>assets/js/engine.js</code>) — nothing here is generated by an LLM. Environmental and IoT data provenance is
       labelled on every card.
     </div>
   </footer>
@@ -409,5 +436,9 @@ ELSE send alert / wait</pre>
   <script src="assets/js/data.js"></script>
   <script src="assets/js/engine.js"></script>
   <script src="assets/js/ui.js"></script>
+  <script type="importmap">
+    {"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}
+  </script>
+  <script type="module" src="assets/js/stress3d.js"></script>
 </body>
 </html>

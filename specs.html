@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="description" content="FieldShift technical specification — data sources, Field State schema, scenario-engine formulas and constants, economics model, API contract, IoT hardware, firmware, safety guardrails, and governance." />
+  <meta name="description" content="FieldShift technical specification — crop feasibility, risk-adjusted margin, one-season stress tests, read-only IoT ground truth, and observation data contract." />
   <title>FieldShift — Technical Specification</title>
   <link rel="stylesheet" href="assets/css/fieldshift.css" />
   <style>
@@ -73,7 +73,8 @@
         <a href="index.html">Home</a>
         <a href="problem.html">Problem &amp; Solution</a>
         <a href="app.html">Prototype</a>
-        <a href="iot-3d.html">IoT 3D</a>
+        <a href="idea-merge.html">Idea Merge</a>
+        <a href="iot-3d.html">IoT Ground Truth</a>
         <a href="specs.html" aria-current="page">Specs</a>
       </nav>
       <button class="print-button" onclick="window.print()">Print / Save PDF</button>
@@ -94,10 +95,8 @@
         truth and the draft is corrected.
       </p>
       <div class="callout info" style="margin-top:18px">
-        <strong>How this was verified:</strong> the worked examples in Sections 5 and 6 were produced by
-        actually executing <code>window.FS.engine.listScenarios()</code> / <code>buildPayload()</code>
-        against the shipped <code>data/*.js</code> files under Node (the same code path the browser runs),
-        not hand-derived. Field <code>poly_idn_jt_001</code>, Jawa Timur, analysis date 2026-09-22.
+        <strong>Prototype boundary:</strong> the engine runs in the browser against bundled data, and every
+        IoT sample is synthetic. Field <code>poly_idn_jt_001</code>, Jawa Timur; no physical sensor is connected.
       </div>
     </header>
 
@@ -111,8 +110,8 @@
         <a href="#economics">6. Economics &amp; risk</a>
         <a href="#api">7. API contract</a>
         <a href="#hardware">8. IoT hardware</a>
-        <a href="#firmware">9. Firmware state machine</a>
-        <a href="#guardrails">10. Safety guardrails</a>
+        <a href="#firmware">9. Data delivery modes</a>
+        <a href="#guardrails">10. Observation quality</a>
         <a href="#privacy">11. Privacy &amp; governance</a>
         <a href="#mvp">12. MVP scope &amp; KPIs</a>
         <a href="#assumptions">13. Assumptions &amp; risks</a>
@@ -125,10 +124,9 @@
         <section id="overview">
           <h2><span class="spec-num">1</span>System overview</h2>
           <p class="lede">
-            FieldShift's MVP is a <strong>client-only decision engine</strong>: every score, gate, and IDR
-            figure a farmer sees is computed synchronously in the browser from bundled JSON, with one
-            optional live network call (NASA POWER). There is no server, database, or LLM in the scoring
-            path today — Sections 7 and 11 describe the migration target for a production build.
+            FieldShift's MVP is a <strong>client-only decision-support prototype</strong>: gates, stress
+            assumptions, and IDR figures are computed in the browser from bundled data, with one optional
+            NASA POWER call. There is no backend, physical IoT connection, or LLM in the scoring path.
           </p>
 
           <div class="architecture">
@@ -150,10 +148,8 @@
             <div class="layer">
               <div class="layer-name">Scenario engine</div>
               <div class="layer-body">
-                <code>engine.js</code> — four hard feasibility gates, four weighted sub-scores, a
-                priority-weighted total, and a verdict. Pure, deterministic, synchronous arithmetic — no DOM
-                access, no network call, no LLM call anywhere in this file, by explicit design rule
-                (Section 5).
+                <code>engine.js</code> — soil, calendar, capital, and explicit water-budget gates; crop-fit
+                sub-scores; and a risk-adjusted margin rank among feasible options. Deterministic arithmetic.
               </div>
             </div>
             <div class="layer">
@@ -171,13 +167,8 @@
               </div>
             </div>
             <div class="layer">
-              <div class="layer-name">IoT action loop</div>
-              <div class="layer-body">
-                Physically separate from the web app today: <code>FieldShift Node v1</code> hardware
-                (Section 8), a firmware state machine (Section 9), and fail-closed safety guardrails
-                (Section 10). Documented as a concept artifact, not yet wired to the scenario engine's
-                output.
-              </div>
+              <div class="layer-name">IoT ground truth</div>
+              <div class="layer-body">One read-only pilot kit records probe, microclimate, flow, pump-contact, and camera observations. No pump or valve commands.</div>
             </div>
             <div class="layer">
               <div class="layer-name">Gov/NGO aggregation (optional branch)</div>
@@ -357,18 +348,19 @@
                 <tr><td><code>request_metadata.location</code></td><td>string</td><td>free text</td><td>No</td><td>"Jawa Timur, Indonesia".</td></tr>
                 <tr><td><code>request_metadata.analysis_date</code></td><td>string</td><td>ISO date</td><td>No</td><td>"2026-09-22".</td></tr>
                 <tr><td><code>request_metadata.centroid.lat/lon</code></td><td>number</td><td>degrees</td><td>No</td><td>Used as the NASA POWER point-query coordinate.</td></tr>
-                <tr><td><code>farmer_input.previous_crop</code></td><td>string</td><td>must match a key in <code>data/crops.js</code> by name</td><td>Defaults to "Rice"</td><td>Determines Scenario A (the do-nothing baseline) and the rotation/monoculture logic.</td></tr>
+                <tr><td><code>farmer_input.previous_crop</code></td><td>string</td><td>must match a key in <code>data/crops.js</code> by name</td><td>Defaults to "Rice"</td><td>Sets the rotation context; every crop is still ranked by feasibility and risk-adjusted margin.</td></tr>
                 <tr><td><code>farmer_input.irrigation_type</code></td><td>string enum</td><td><code>Rainfed | Furrow | Sprinkler | Drip</code></td><td>Defaults to "Rainfed"</td><td>Looked up in the <code>IRRIGATION</code> table (Section 5); unrecognised values fall back to Rainfed.</td></tr>
                 <tr><td><code>farmer_input.priorities</code></td><td>string[]</td><td>subset of 5 labels (Section 5)</td><td>Yes — empty array allowed; defaults to <code>["Save Water","Reduce Climate Risk"]</code></td><td>Empty/unset priorities give a neutral 50 farmer-priority-alignment score and equal 0.25/0.25/0.25/0.25 category weights.</td></tr>
                 <tr><td><code>farmer_input.area_ha</code></td><td>number</td><td>hectares, &gt; 0</td><td>Defaults to 1</td><td>Not sourced from the team's research PDF — an MVP default so the capital gate and economics have somewhere to start.</td></tr>
                 <tr><td><code>farmer_input.capital_available_idr_per_ha</code></td><td>number</td><td>IDR/ha, &ge; 0</td><td>Defaults to 15,000,000</td><td>Compared against each crop's <code>capital_requirement_idr_per_ha</code> in Gate 3.</td></tr>
+                <tr><td><code>farmer_input.water_budget_mm</code></td><td>number</td><td>seasonal irrigation water, mm, &ge; 0</td><td>Defaults to 0 for the Rainfed example</td><td>Added to scenario rainfall for the visible water-feasibility gate.</td></tr>
                 <tr><td><code>soil_chemistry.pH</code></td><td>number</td><td>pH (H&#8322;O)</td><td>No — 6.2</td><td>Gate 1 input.</td></tr>
                 <tr><td><code>soil_chemistry.organic_carbon_pct</code></td><td>number</td><td>% SOC</td><td>No — 3.66</td><td>Display value; <code>soc_level</code> ("high") is what the engine actually scores against.</td></tr>
                 <tr><td><code>soil_chemistry.soc_level</code></td><td>string enum</td><td><code>low | medium | high</code></td><td>No — "high"</td><td>Mapped to {0.3, 0.6, 1.0} in <code>soilHealthImpact()</code>.</td></tr>
                 <tr><td><code>soil_chemistry.water_retention</code></td><td>string</td><td>qualitative</td><td>No — "Medium"</td><td>Descriptive only; not read by the current scoring formulas.</td></tr>
                 <tr><td><code>live_observation.ndvi_current</code></td><td>number</td><td>&minus;1..1</td><td>No — 0.42</td><td>Descriptive; not currently read by the scoring formulas (see honesty note, Section 5).</td></tr>
                 <tr><td><code>live_observation.ndwi_current</code></td><td>number</td><td>&minus;1..1</td><td>No — &minus;0.15</td><td>Only negative values penalize the water sub-score (a wet/stable reading gets no bonus — a snapshot is not a forecast).</td></tr>
-                <tr><td><code>agrometeorological_context.precipitation_outlook</code></td><td>string enum</td><td><code>Below-average | Average | Above-average</code></td><td>No — "Below-average"</td><td>Drives Gate 4 and the water/climate sub-scores. Overwritten by the live NASA POWER overlay in "Live" mode.</td></tr>
+                <tr><td><code>agrometeorological_context.precipitation_outlook</code></td><td>string enum</td><td><code>Below-average | Average | Above-average</code></td><td>No — "Below-average"</td><td>Describes regional context. Scenario rainfall drives the water gate; selected stress outlook drives scenario climate scores.</td></tr>
                 <tr><td><code>agrometeorological_context.temperature_outlook</code></td><td>string enum</td><td><code>Below-average | Average | Above-average</code></td><td>No — "Above-average"</td><td>Drives the climate sub-score's heat term.</td></tr>
               </tbody>
             </table>
@@ -403,12 +395,12 @@
             <code>source_note</code>.
           </p>
 
-          <h3 style="margin-top:30px">Feasibility gates (hard pass/fail, evaluated before any scoring)</h3>
+          <h3 style="margin-top:30px">Feasibility gates (hard pass/fail, before ranking)</h3>
           <ol>
             <li><strong>Soil pH.</strong> Reject if <code>soil_chemistry.pH</code> falls outside <code>[crop.ph_min, crop.ph_max]</code>.</li>
             <li><strong>Planting window.</strong> Reject if none of the crop's <code>calendar_track</code> entries ever shows <code>"Planting-Early Veg"</code> in the 24-row half-month calendar.</li>
             <li><strong>Capital.</strong> Reject if <code>capital_requirement_idr_per_ha × area_ha &gt; capital_available_idr_per_ha × area_ha</code>. <span class="muted">(Note: because the farmer's capital figure is already expressed per hectare, <code>area_ha</code> cancels out of both sides — the pass/fail outcome is independent of the declared area. A minor code smell, not a scoring bug: the comparison direction is unaffected.)</span></li>
-            <li><strong>Water hard-safety-net.</strong> Only checked when <code>precipitation_outlook === "Below-average"</code>: reject if <code>water_requirement_mm &gt; irrigation.capacity_mm × irrigation.efficiency × 3</code> (<code>WATER_GATE_MULTIPLIER = 3</code>). Deliberately loose so the ordinary "rice on rainfed under a dry outlook" case is <strong>scored poorly, not gated out</strong> — matching the calibration target that Scenario A is scored, not marked infeasible.</li>
+            <li><strong>Water budget.</strong> Reject if <code>water_requirement_mm × demand_multiplier &gt; scenario_rain_mm + farmer_irrigation_budget_mm</code>. This gate belongs to plan ranking. The separate Stress Lab uses relative rainfall and irrigation assumptions for its illustrative plant-stress view.</li>
           </ol>
 
           <h3 style="margin-top:30px">Sub-score 1 — Water demand suitability</h3>
@@ -481,106 +473,25 @@
             about exactly one thing. Fixed; regression-tested in <code>engine.test.js</code>.
           </p>
 
-          <h3 style="margin-top:30px">Priority weighting matrix</h3>
-          <p>
-            Base weight is 0.25 per category. Each active priority adds <code>CATEGORY_WEIGHT_BOOST = 0.05</code>
-            to its mapped category, then the total boost is subtracted back out evenly across all four
-            categories so the weights always sum to exactly 1:
-          </p>
-          <div class="table-wrap">
-            <table>
-              <thead><tr><th>Priority</th><th>Boosts category</th></tr></thead>
-              <tbody>
-                <tr><td>Save Water</td><td>water_demand_suitability</td></tr>
-                <tr><td>Reduce Climate Risk</td><td>climate_resilience</td></tr>
-                <tr><td>Improve Soil Health</td><td>soil_health_impact</td></tr>
-                <tr><td>Maximize Yield</td><td>farmer_priority_alignment</td></tr>
-                <tr><td>Low Capital</td><td>farmer_priority_alignment</td></tr>
-              </tbody>
-            </table>
-          </div>
-          <p class="muted" style="font-size:13.5px">
-            Example — default priorities <code>["Save Water", "Reduce Climate Risk"]</code>: raw boosts
-            water +0.05, climate +0.05; total boost 0.10 &divide; 4 categories = 0.025 subtracted from each →
-            final weights <strong>water 0.275, soil 0.225, climate 0.275, priority 0.225</strong> (sums to 1.0).
-          </p>
-
-          <h3 style="margin-top:30px">Verdict thresholds</h3>
-          <div class="table-wrap">
-            <table>
-              <thead><tr><th>Weighted total</th><th>Verdict</th></tr></thead>
-              <tbody>
-                <tr><td>&ge; 80</td><td><span class="verdict-pill rec-high">Highly Recommended</span></td></tr>
-                <tr><td>60–79</td><td><span class="verdict-pill rec-mid">Viable Alternative</span></td></tr>
-                <tr><td>40–59</td><td><span class="verdict-pill rec-mid">Marginal</span></td></tr>
-                <tr><td>&lt; 40</td><td><span class="verdict-pill rec-low">Not Recommended</span></td></tr>
-              </tbody>
-            </table>
-          </div>
-
-          <h3 style="margin-top:30px">Worked example (reproduced by actually running the engine)</h3>
-          <p>
-            Default field state, default farmer input (previous crop Rice, Rainfed, priorities Save Water +
-            Reduce Climate Risk):
-          </p>
-          <div class="table-wrap">
-            <table>
-              <thead><tr><th>Scenario</th><th>Rotation</th><th>Water</th><th>Soil</th><th>Climate</th><th>Priority</th><th>Total</th><th>Verdict</th></tr></thead>
-              <tbody>
-                <tr><td>A (baseline)</td><td>Rice → Rice</td><td>31</td><td>45</td><td>40</td><td>25</td><td>35.3</td><td><span class="verdict-pill rec-low">Not Recommended</span></td></tr>
-                <tr><td>B</td><td>Rice → Soybean</td><td>82</td><td>90</td><td>82</td><td>95</td><td>86.7</td><td><span class="verdict-pill rec-high">Highly Recommended</span></td></tr>
-                <tr><td>C</td><td>Rice → Maize</td><td>61</td><td>80</td><td>60</td><td>74</td><td>67.9</td><td><span class="verdict-pill rec-mid">Viable Alternative</span></td></tr>
-              </tbody>
-            </table>
-          </div>
-          <div class="formula" style="font-size:15px">
-            B's total = 82&times;0.275 + 90&times;0.225 + 82&times;0.275 + 95&times;0.225 = 22.55 + 20.25 + 22.55 + 21.375 = 86.725 → <strong>86.7</strong>
-            <small>Ranking: B (86.7) &gt; C (67.9) &gt; A (35.3) — reproduced exactly by <code>engine.test.js</code>'s 34-assertion self-check.</small>
-          </div>
-
-          <div class="callout honesty">
-            <strong>Honesty note 1 — scenario IDs are rank-based, not identity-based.</strong> Scenario A is
-            always the do-nothing baseline: repeat the previous crop. Every other candidate crop is scored
-            and then sorted by descending weighted total, and assigned B, C, D&hellip; in that order. Under a
-            different set of farmer priorities, "Scenario B" can be a <em>different crop</em> — it is not a
-            fixed label for soybean. The ranking, not the letter, carries the meaning.
-          </div>
-
-          <div class="callout honesty">
-            <strong>Honesty note 2 — the candidate pool is restricted to rice, maize, and soybean</strong>
-            (<code>MVP_SCENARIO_CROP_KEYS</code>), matching problem.html's stated MVP scope ("three realistic
-            options"). Running the same engine against the two crops left out of the pilot — with identical
-            field state and priorities — actually produces:
-            <div class="table-wrap" style="margin-top:10px">
-              <table>
-                <thead><tr><th>Crop (not offered in MVP)</th><th>Water</th><th>Soil</th><th>Climate</th><th>Priority</th><th>Total</th><th>Verdict</th></tr></thead>
-                <tbody>
-                  <tr><td>Mung bean</td><td>100</td><td>81</td><td>91</td><td>100</td><td><strong>93.3</strong></td><td>Highly Recommended</td></tr>
-                  <tr><td>Peanut</td><td>74</td><td>90</td><td>69</td><td>92</td><td><strong>80.3</strong></td><td>Highly Recommended</td></tr>
-                </tbody>
-              </table>
-            </div>
-            Both <strong>outscore</strong> soybean (86.7) or sit close behind it — the full-catalogue ranking
-            would actually be mung bean (93.3) &gt; soybean (86.7) &gt; peanut (80.3) &gt; maize (67.9) &gt;
-            rice baseline (35.3). Mung bean and peanut remain in <code>data/crops.js</code> and still shape
-            the priority-alignment min-max curves; they are absent from the scenario list purely because the
-            MVP was scoped to three commodities, not because the model can't evaluate them or rates them
-            poorly.
-          </div>
-
-          <div class="callout honesty">
-            <strong>Honesty note 3 — several coefficients are empirically calibrated, not derived from
-            agronomic literature.</strong> <code>WATER_K = 110</code>, the 0.6/0.4 water blend weights, the
-            soil bonuses/penalties (40 / 30 / 10 / 13 / 22), the climate weights (60 / 25 / 12 / 3 / 8 / 15),
-            <code>PRIORITY_ALIGNMENT_FLOOR/SCALE = 25/87</code>, and <code>CATEGORY_WEIGHT_BOOST = 0.05</code>
-            were back-solved so the engine reproduces the team's documented reference scenario (the A/B/C
-            targets above, encoded in <code>engine.test.js</code>). They are internally consistent and
-            regression-tested, but they are <strong>not</strong> independently derived from FAO/agronomic
-            literature the way the crop parameter table (water requirement, pH band, yield) is. These are the
-            first constants to replace with field-validated values once real trial or extension-officer data
-            exists.
-          </div>
-        </section>
+          <h3 style="margin-top:30px">Fit scores and ranking</h3>
+<p>The four crop-fit scores and weighted <code>total</code> remain explanatory diagnostics. They do not select the winner when options pass every gate.</p>
+<div class="formula" style="font-size:16px">
+  downside_margin = (revenue &times; 0.80 &times; 0.85) &minus; (variable_cost &times; 1.10)<br />
+  risk_reserve = &lambda; &times; max(0, expected_margin &minus; downside_margin)<br />
+  risk_adjusted_margin = expected_margin &minus; risk_reserve
+  <small>This downside reserve ranks options on the Scenarios tab. It is separate from the 3D Stress Lab, which does not calculate money.</small>
+</div>
+<ul class="const-list">
+  <li>Run soil pH, calendar, capital, and explicit seasonal water-budget gates first.</li>
+  <li>Sort feasible options by descending risk-adjusted margin per hectare.</li>
+  <li>Show infeasible options after feasible options, with their failed gates; their fit score does not make them feasible.</li>
+  <li>If no option passes all gates, show no feasible crop option and no leader.</li>
+  <li>The current crop is included as a baseline option. Each option represents the next season only, with at most one crop change.</li>
+</ul>
+<div class="callout info">
+  <strong>Stress assumptions are not forecasts.</strong> The four Stress Lab presets vary illustrative rainfall, irrigation availability, and temperature. Plant-condition indices respond to climate assumptions. Harvest remains a separate explicit assumption, and sale-price changes only produce a qualitative context label.
+</div>
+<p class="muted" style="font-size:13.5px">The offered crop set is Rice, Maize, and Soybean. IDs A, B, C are assigned after ranking and do not identify a fixed crop.</p></section>
 
         <!-- 6. ECONOMICS & RISK MODEL ====================================== -->
         <section id="economics">
@@ -589,7 +500,7 @@
 
           <div class="formula" style="font-size:16px">
             Expected Net Margin/ha = predicted_yield &times; 1000 &times; farm_gate_price &minus; variable_cost
-            <small>predicted_yield = base_yield_t_ha &times; (0.70 + 0.30 &times; climate_resilience &divide; 100) — a stressed crop under-performs its reference yield.</small>
+            <small>Scenario ranking uses the crop's configured reference yield. The Stress Lab harvest slider is a separate assumption and does not feed this money formula.</small>
           </div>
 
           <h3 style="margin-top:26px">Risk range</h3>
@@ -611,35 +522,17 @@
           </ul>
           <p class="muted" style="font-size:13.5px">Label: score &ge; 0.75 → <strong>High</strong>; &ge; 0.5 → <strong>Medium</strong>; else <strong>Low</strong>.</p>
 
-          <h3 style="margin-top:26px">Worked example — Scenario B (Soybean), default field state</h3>
-          <p>Climate resilience = 82, confidence = 0.80 (High).</p>
-          <div class="formula" style="font-size:15px">
-            yieldAdj = 0.70 + 0.30&times;0.82 = 0.946 &rarr; predicted yield = 1.5 &times; 0.946 = <strong>1.42 t/ha</strong><br />
-            revenue = 1,419 kg &times; 10,000 IDR/kg = <strong>14,190,000 IDR/ha</strong>; cost = 7,500,000 IDR/ha &rarr; expected = <strong>6,690,000 IDR/ha</strong><br />
-            downside = 0.35&times;0.25 + 0.45&times;0.20 + 0.20&times;0.15 = 0.2075 &rarr; low = <strong>5,301,825 IDR/ha</strong><br />
-            upside = 0.09&times;0.60 + 0.03&times;0.30 = 0.063 &rarr; high = <strong>7,111,470 IDR/ha</strong><br />
-            break-even price = 7,500,000 &divide; 1,419 = <strong>5,285 IDR/kg</strong> (vs. an actual farm-gate price of 10,000 IDR/kg)
-          </div>
-
-          <div class="table-wrap">
-            <table>
-              <thead><tr><th>Scenario</th><th>Predicted yield</th><th>Margin range (IDR/ha)</th><th>Break-even price</th></tr></thead>
-              <tbody>
-                <tr><td>A — Rice (baseline)</td><td>4.26 t/ha</td><td>9,746,520 &ndash; 14,032,272 (expected 13,584,000)</td><td>2,814 IDR/kg</td></tr>
-                <tr><td>B — Soybean</td><td>1.42 t/ha</td><td>5,301,825 &ndash; 7,111,470 (expected 6,690,000)</td><td>5,285 IDR/kg</td></tr>
-                <tr><td>C — Maize</td><td>4.40 t/ha</td><td>9,912,500 &ndash; 13,663,000 (expected 13,000,000)</td><td>2,045 IDR/kg</td></tr>
-              </tbody>
-            </table>
-          </div>
-          <p class="muted" style="font-size:13px">
-            Note the counter-intuitive result: Rice's expected margin (13.58M) is actually higher than
-            Soybean's (6.69M) in absolute IDR/ha — Soybean wins on the weighted <em>score</em> (climate
-            resilience, water suitability, soil rotation benefit, and the farmer's stated priorities), not on
-            raw margin alone. This is exactly the "not simply chasing yield or margin" design intent from
-            problem.html — and a reason the margin range must always be shown next to the verdict, not instead
-            of it.
-          </p>
-        </section>
+          <h3 style="margin-top:26px">FarmShift 3D Stress Lab</h3>
+          <p>The plant sandbox is separate from the economics engine. It compares the plan baseline with one crop change over a 12-week replay and uses relative rainfall, irrigation, temperature, and crop sensitivity assumptions.</p>
+          <ul class="const-list">
+            <li>Water stress index = mean rainfall and irrigation shortfall × crop drought sensitivity × week-stage factor.</li>
+            <li>Heat stress index = temperature anomaly × (1 − crop heat tolerance) × week-stage factor.</li>
+            <li>Risk index combines water stress (70%) and heat stress (30%). These weights are prototype heuristics, not calibrated agronomic coefficients.</li>
+            <li>Risk bands: Low below 20, Moderate from 20 to 49, High at 50 and above.</li>
+            <li>Harvest change is an explicit user assumption; rainfall and heat do not calculate a yield. Sale-price change maps to a qualitative profitability-context label only.</li>
+            <li>Water reserve is a nonfinancial illustrative index. Stress Lab displays no revenue, cost, margin, or currency formula.</li>
+          </ul>
+          <p class="muted" style="font-size:13.5px">The model supports visual comparison and discussion only. Validate local crop response, stage timing, and index weights before treating outputs as agronomic advice.</p></section>
 
         <!-- 7. API CONTRACT ================================================ -->
         <section id="api">
@@ -652,236 +545,99 @@
             specification to implement against, not a running service.
           </div>
 
-          <h3 style="margin-top:24px"><code>POST /field-state</code></h3>
-          <p>Mirrors <code>engine.computeFieldState()</code>: merges farmer overrides onto the stored default and returns the resolved Field State.</p>
-          <pre class="code-block">// Request
-{
+          <h3 style="margin-top:24px"><code>POST /field-state</code> (future server contract)</h3>
+<p>No server runs in this prototype. This shape documents the data needed by a future device and app integration.</p>
+<pre class="code-block">{
   "field_id": "poly_idn_jt_001",
   "farmer_input": {
     "previous_crop": "Rice",
-    "irrigation_type": "Drip",
-    "priorities": ["Save Water"],
-    "area_ha": 2.5,
-    "capital_available_idr_per_ha": 20000000
+    "area_ha": 1,
+    "capital_available_idr_per_ha": 15000000,
+    "water_budget_mm": 600
   }
-}
+}</pre>
 
-// Response — full field_state.json shape with farmer_input merged
-{
+<h3 style="margin-top:24px"><code>POST /scenarios</code></h3>
+<p>Returns next-season options after soil, calendar, capital, and water gates. Feasible options sort by risk-adjusted margin. Response values are illustrative:</p>
+<pre class="code-block">{
   "status": "success",
-  "request_metadata": { "field_id": "poly_idn_jt_001", "location": "Jawa Timur, Indonesia", "analysis_date": "2026-09-22" },
-  "farmer_input": { "previous_crop": "Rice", "irrigation_type": "Drip", "priorities": ["Save Water"], "area_ha": 2.5, "capital_available_idr_per_ha": 20000000 },
-  "soil_chemistry": { "pH": 6.2, "organic_carbon_pct": 3.66, "soc_level": "high", "water_retention": "Medium" },
-  "live_observation": { "ndvi_current": 0.42, "ndwi_current": -0.15, "vegetation_status": "Declining / Drying" },
-  "agrometeorological_context": { "precipitation_outlook": "Below-average", "temperature_outlook": "Above-average" }
+  "scenario_engine_results": [{
+    "scenario_id": "A",
+    "rotation_plan": ["Rice", "Soybean"],
+    "feasible": true,
+    "water_required_mm": 450,
+    "water_available_mm": 1080,
+    "economics": {
+      "expected_net_margin_idr_per_ha": { "expected": 7500000 },
+      "downside_margin_idr_per_ha": 1950000,
+      "risk_reserve_idr_per_ha": 2775000,
+      "risk_adjusted_margin_idr_per_ha": 4725000
+    }
+  }]
 }</pre>
 
-          <h3 style="margin-top:24px"><code>POST /scenarios</code></h3>
-          <p>Mirrors <code>engine.listScenarios()</code> / <code>buildPayload()</code>. Same request body as above.</p>
-          <pre class="code-block">// Response — scenario_engine_results array
-{
-  "status": "success",
-  "scenario_engine_results": [
-    { "scenario_id": "A", "rotation_plan": ["Rice", "Rice"],
-      "feasible": true, "scores": { "water_demand_suitability": 31, "soil_health_impact": 45,
-      "climate_resilience": 40, "farmer_priority_alignment": 25 },
-      "total": 35.3, "verdict": "Not Recommended",
-      "economics": { "predicted_yield_t_ha": 4.26,
-        "expected_net_margin_idr_per_ha": { "low": 9746520, "expected": 13584000, "high": 14032272 },
-        "break_even_price_idr_per_kg": 2814 },
-      "confidence": { "score": 0.8, "label": "High", "reasons": ["..."] },
-      "trade_off_analysis": "Planting rice again next season carries a relatively high crop-failure risk. ..." },
-    { "scenario_id": "B", "rotation_plan": ["Rice", "Soybean"], "total": 86.7, "verdict": "Highly Recommended", "...": "..." },
-    { "scenario_id": "C", "rotation_plan": ["Rice", "Maize"], "total": 67.9, "verdict": "Viable Alternative", "...": "..." }
-  ]
-}</pre>
+<h3 style="margin-top:24px"><code>GET /telemetry</code></h3>
+<p>Observation envelopes are defined in <a href="data/ground_truth_contract.json"><code>data/ground_truth_contract.json</code></a>. Sensor readings and photos have separate sources, observation times, upload times, and quality states.</p>
+<div class="callout danger">The contract is read-only. No <code>/irrigation/command</code> endpoint exists in this prototype.</div></section>
 
-          <h3 style="margin-top:24px"><code>GET /telemetry?node_id=node_jt_001&amp;since=2026-09-23T00:00:00Z</code></h3>
-          <p>Mirrors the shape of <code>data/telemetry.json</code>.</p>
-          <pre class="code-block">{
-  "node_id": "node_jt_001",
-  "field_id": "poly_idn_jt_001",
-  "interval_minutes": 30,
-  "readings": [
-    { "timestamp": "2026-09-24T06:00:00Z", "soil_moisture_15cm_pct_vwc": 30.25,
-      "soil_moisture_40cm_pct_vwc": 27.16, "air_temp_c": 26.03, "flow_lpm": 59.4,
-      "pump_state": 1, "battery_v": 3.859, "rssi_dbm": -61.3, "sensor_fault_flag": false }
-  ]
-}</pre>
-
-          <h3 style="margin-top:24px"><code>POST /irrigation/command</code></h3>
-          <p>Server validates against the guardrails in Section 10 (manual override state, max runtime) before forwarding to the gateway.</p>
-          <pre class="code-block">// Request
-{ "node_id": "node_jt_001", "action": "open", "duration_s": 600, "requested_by": "farmer" }
-
-// Response
-{ "command_id": "cmd_00417", "accepted": true, "valve_state": "open",
-  "fail_safe_state": "closed", "verified": false,
-  "message": "Awaiting Hall-effect flow confirmation within 30s (Verify step)." }</pre>
-        </section>
-
-        <!-- 8. IOT HARDWARE SPEC =========================================== -->
+                <!-- 8. READ-ONLY IOT HARDWARE ====================================== -->
         <section id="hardware">
-          <h2><span class="spec-num">8</span>IoT hardware spec</h2>
-          <p class="lede">
-            Full interactive bill of materials, 3D explorer, and diagrams live on
-            <a href="iot-3d.html">iot-3d.html</a>. This section summarizes the numbers that matter for
-            planning, using the corrected figures published there.
-          </p>
-
-          <div class="grid-4" style="margin:16px 0">
-            <div class="kpi"><b>16.59 mAh/day</b><span>Total node draw</span></div>
-            <div class="kpi"><b>6,800 mAh</b><span>Pack (2&times; 3,400 mAh 18650, parallel)</span></div>
-            <div class="kpi"><b>4,896 mAh</b><span>Usable after de-rating (0.80 DoD &times; 0.90 heat/humidity)</span></div>
-            <div class="kpi"><b>&ge;60 days</b><span>Claimed autonomy (not the 295-day paper figure)</span></div>
-          </div>
-
-          <p><strong>Core hardware:</strong> ESP32-S3 (dual-core) + Semtech SX1262 LoRa on <strong>AS923</strong> (the correct Indonesia/SE-Asia ISM band, not US 915&nbsp;MHz); two capacitive (FDR) soil-moisture probes at 15&nbsp;cm and 40&nbsp;cm; SHT31 air temperature/humidity; 6&nbsp;V/2&nbsp;W solar panel with an MPPT/linear charge controller; IP65 enclosure with a single M12 IP68 cable gland. A separately-priced actuation point pairs one 12&nbsp;V normally-closed solenoid valve, an opto-isolated relay driver, and a Hall-effect flow meter — one actuation point can serve several sensing nodes on the same plot.</p>
-
-          <h3 style="margin-top:24px">Power budget (16.59 mAh/day total)</h3>
+          <h2><span class="spec-num">8</span>IoT Ground Truth pilot kit</h2>
+          <p class="lede">One compact observation-only node for one pilot plot. It supplies evidence to the app and has no pump or valve output.</p>
+          <p><strong>Logger:</strong> Raspberry Pi Zero 2 W, Camera Module 2 pointed at a fixed soil-surface patch, and protected 5 V power over Wi-Fi. Pi Zero 2 W includes 2.4 GHz Wi-Fi and a CSI-2 camera connector; Raspberry Pi's camera software supports still-image capture.</p>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Mode</th><th>Current</th><th>Duration / events</th><th>Charge/day</th></tr></thead>
+              <thead><tr><th>Part</th><th>Placement / connection</th><th>Reading</th><th>Price</th></tr></thead>
               <tbody>
-                <tr><td>Deep sleep (board-level, incl. LDO + charge-controller quiescent draw)</td><td>0.25 mA</td><td>24 h continuous</td><td>6.00 mAh</td></tr>
-                <tr><td>Sense (SDI-12 probes + I&sup2;C air sensor)</td><td>60 mA</td><td>2 s &times; 48/day</td><td>1.60 mAh</td></tr>
-                <tr><td>LoRa transmit (+14 dBm, AS923)</td><td>100 mA</td><td>1.5 s &times; 48/day</td><td>2.00 mAh</td></tr>
-                <tr><td>Actuate (relay logic side only; 12V coil has its own supply)</td><td>30 mA</td><td>60 s &times; 2/day</td><td>1.00 mAh</td></tr>
-                <tr><td>Downlink RX window (Class A, two slots/uplink)</td><td>12 mA</td><td>2 s &times; 48/day</td><td>0.32 mAh</td></tr>
-                <tr><td><strong>Cell self-discharge</strong> — the largest single term at this duty cycle</td><td>&mdash;</td><td>continuous, 2.5%/month</td><td>5.67 mAh</td></tr>
-                <tr><td colspan="3"><strong>Total</strong></td><td><strong>16.59 mAh/day</strong></td></tr>
+                <tr><td>Raspberry Pi Zero 2 W + enclosure</td><td>Plot edge; 5 V supply, Wi-Fi, GPIO</td><td>Local logger and upload queue</td><td>Local quote</td></tr>
+                <tr><td>Camera Module 2 + ribbon</td><td>CSI; fixed view aimed at soil surface</td><td>Qualitative surface photo, not moisture</td><td>Local quote</td></tr>
+                <tr><td>Soil-moisture probe + interface</td><td>Root zone; ADC/interface board as required</td><td>Numeric moisture value; calibrate for local soil</td><td>Local quote</td></tr>
+                <tr><td>Air temperature / humidity sensor</td><td>Shaded, ventilated mount; I²C or GPIO interface</td><td>Microclimate</td><td>Local quote</td></tr>
+                <tr><td>Inline flow meter</td><td>Existing irrigation pipe; pulse input</td><td>Water flow / volume</td><td>Local quote</td></tr>
+                <tr><td>Isolated pump-status input</td><td>Compatible low-voltage status contact; opto-isolated input</td><td>On / off / unknown, read-only</td><td>Local quote</td></tr>
+                <tr><td>Wires, mount, 5 V supply, weather enclosure</td><td>Protected install near one plot</td><td>Power and physical protection</td><td>Local quote</td></tr>
               </tbody>
             </table>
           </div>
-          <p class="muted" style="font-size:13.5px">
-            Cell self-discharge alone is 5.67 of 16.59 mAh/day — about a third of the total load — and it
-            keeps draining the pack whether or not the node ever wakes up. Omitting it, as iot-3d.html notes,
-            is "the classic way IoT power budgets end up fictional".
-          </p>
-
-          <div class="callout info">
-            Paper autonomy at zero solar input: 4,896 &divide; 16.59 &asymp; 295 days. <strong>The claimed
-            figure is &ge;60 days</strong>, not 295 — past roughly two months the binding constraint stops
-            being energy and becomes <strong>calendar ageing, connector corrosion, and probe drift</strong>.
-            Solar income, de-rated for the wet season (2&nbsp;W &times; 1.2 effective peak-sun-hours &times;
-            75% charge-path efficiency) is &asymp;486 mAh/day, a &asymp;29&times; recharge margin over the
-            daily load even in the worst monsoon month — the panel is oversized on purpose, to recover the
-            pack after a multi-week overcast run, not merely to balance one day. Energy is not the limiting
-            factor in this design; serviceability is.
-          </div>
-
-          <h3 style="margin-top:24px">Radio link budget (AS923)</h3>
-          <div class="table-wrap">
-            <table>
-              <thead><tr><th>Parameter</th><th>Value</th></tr></thead>
-              <tbody>
-                <tr><td>EIRP (14 dBm TX + 2 dBi antenna)</td><td>+16 dBm</td></tr>
-                <tr><td>Receiver sensitivity (SF10, BW 125 kHz)</td><td>&minus;132 dBm</td></tr>
-                <tr><td>Link budget (max allowable path loss)</td><td>153 dB</td></tr>
-                <tr><td>Margin at 5 km (canopy/NLOS, realistic reliable range)</td><td>38.9 dB</td></tr>
-                <tr><td>Margin at 12 km (clear line-of-sight)</td><td>26.7 dB</td></tr>
-                <tr><td>Duty-cycle use</td><td>0.083% of the 1%/channel AS923 allowance (&gt;10&times; headroom)</td></tr>
-              </tbody>
-            </table>
-          </div>
-
-          <h3 style="margin-top:24px">Cost</h3>
-          <div class="grid-4">
-            <div class="kpi"><b>$80.00</b><span>Sensing node, pilot unit cost</span></div>
-            <div class="kpi"><b>$16.20</b><span>Paired actuation point (valve + relay + flow meter)</span></div>
-            <div class="kpi"><b>$96.20</b><span>Full field kit (one node + one actuation point)</span></div>
-            <div class="kpi"><b>~$16,000</b><span>200-node pilot batch (device only)</span></div>
-          </div>
-          <p class="muted" style="font-size:13px">
-            All costs are indicative pilot-quantity (100–300 unit) engineering estimates, not supplier quotes.
-            Full bill of materials, per-part rationale, and datasheet links are on
-            <a href="iot-3d.html#bom">iot-3d.html</a>.
-          </p>
+          <div class="callout info"><strong>Outside this pilot:</strong> valves, relays for actuation, pump commands, LoRa, solar sizing, and mains switching. Check interface voltage, enclosure, and probe calibration on the bench before field installation.</div>
+          <p>See the <a href="iot-3d.html">3D kit view</a> for component positions and wiring concept.</p>
         </section>
 
-        <!-- 9. FIRMWARE STATE MACHINE ====================================== -->
+        <!-- 9. DATA DELIVERY MODES ========================================= -->
         <section id="firmware">
-          <h2><span class="spec-num">9</span>Firmware state machine</h2>
-          <p class="lede">
-            iot-3d.html documents the sense/decide/act/verify loop and the per-mode current draws and
-            timings that back Section 8's power budget. This section arranges those same numbers into a
-            fuller lifecycle for firmware implementers — no new current, duration, or event count is
-            introduced here that isn't already in the Section 8 power budget.
-          </p>
-
-          <div class="flow" aria-label="Firmware state machine" style="grid-template-columns:repeat(9, minmax(100px, 1fr))">
-            <div class="flow-step"><b><span class="step-num">1.</span> Boot</b><span>Cold/warm start, self-test SDI-12 probes + I&sup2;C air sensor, read RTC and last-known state from flash.</span></div>
-            <div class="flow-step"><b><span class="step-num">2.</span> Join</b><span>LoRaWAN OTAA join/re-join. Retries with backoff; repeated failure routes to the offline local-rule path.</span></div>
-            <div class="flow-step"><b><span class="step-num">3.</span> Sleep</b><span>Deep sleep, RTC timer running. 0.25 mA baseline, 30-min cycle (48 wakes/day).</span></div>
-            <div class="flow-step"><b><span class="step-num">4.</span> Sense</b><span>Wake, power probes + air sensor, ADC read. 2 s @ 60 mA.</span></div>
-            <div class="flow-step"><b><span class="step-num">5.</span> Evaluate</b><span>Compare against crop-stage threshold, rain probability, daily water cap; run the sensor-quality check.</span></div>
-            <div class="flow-step"><b><span class="step-num">6.</span> Transmit</b><span>LoRa uplink, +14 dBm AS923. 1.5 s @ 100 mA, then two Class A downlink RX slots (2 s @ 12 mA each).</span></div>
-            <div class="flow-step"><b><span class="step-num">7.</span> Actuate</b><span>Only if Evaluate/downlink calls for irrigation. Relay logic drive, 60 s @ 30 mA per open/close pair.</span></div>
-            <div class="flow-step"><b><span class="step-num">8.</span> Verify</b><span>Confirm real flow via the Hall-effect meter within 30 s; log volume or trip the no-flow alert.</span></div>
-            <div class="flow-step"><b><span class="step-num">9.</span> Fault</b><span>Entered from a failed self-test, sensor-quality flag, no-flow alert, or exceeded max runtime. Always resolves toward valve closed.</span></div>
-          </div>
-
-          <div class="callout" style="margin-top:20px">
-            <strong>Offline local-rule path (Section 10's "Offline local rule" guardrail):</strong> if Join
-            fails, or the uplink/downlink link is lost beyond N consecutive cycles, the node stops waiting on
-            Transmit/gateway downlinks and runs Evaluate → Act using only its own two probes and a
-            conservative pre-agreed daily water cap. It still passes through Actuate → Verify → Fault exactly
-            as normal, and re-attempts Join on every subsequent wake so it reconnects automatically once the
-            link returns. If local data is itself uncertain, the default is no action — valve stays closed.
-          </div>
-
-          <pre class="code-block">IF soil_moisture &lt; crop_threshold
-AND rain_probability_next_6h is low
-AND daily_water_limit not exceeded
-THEN open valve for N minutes
-ELSE send alert / wait</pre>
-        </section>
-
-        <!-- 10. SAFETY GUARDRAILS =========================================== -->
-        <section id="guardrails">
-          <h2><span class="spec-num">10</span>Safety guardrails</h2>
-          <p class="lede">Every guardrail below resolves to the same fail-safe state: irrigation stops and the valve returns to <strong>closed</strong> (the solenoid valve is normally-closed by construction — de-energised = closed).</p>
-
+          <h2><span class="spec-num">9</span>Data delivery modes and contract</h2>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Guardrail</th><th>Trigger condition</th><th>System response</th><th>Fail-safe state</th></tr></thead>
+              <thead><tr><th>Mode</th><th>Sensor samples</th><th>Surface photos</th><th>Upload</th></tr></thead>
               <tbody>
-                <tr>
-                  <td><strong>Manual override</strong></td>
-                  <td>Farmer flips the physical switch or sends an override command.</td>
-                  <td>Immediately halts any automatic actuation; surfaces a manual-mode banner in the app.</td>
-                  <td><span class="tag warn">Valve closed</span> until the farmer re-enables auto mode.</td>
-                </tr>
-                <tr>
-                  <td><strong>Max runtime</strong></td>
-                  <td>Valve open longer than the configured cap (e.g. 20 min).</td>
-                  <td>Controller force-closes the valve and raises a maintenance alert, regardless of the moisture reading.</td>
-                  <td><span class="tag warn">Valve closed</span>.</td>
-                </tr>
-                <tr>
-                  <td><strong>No-flow alert</strong></td>
-                  <td>Relay commands "open" but the Hall-effect flow meter reports no pulses for &gt; 30 s.</td>
-                  <td>Assumes a stuck valve, blocked line, or dry supply; aborts the cycle and flags for inspection.</td>
-                  <td><span class="tag warn">Valve commanded closed</span>, irrigation suspended until acknowledged.</td>
-                </tr>
-                <tr>
-                  <td><strong>Sensor-quality flag</strong></td>
-                  <td>A probe reading is out of physically plausible range, the two probes disagree beyond a threshold, or a reading is stale.</td>
-                  <td>Decision engine discards the suspect input, falls back to the last known-good reading, raises a maintenance flag.</td>
-                  <td>No new irrigation triggered off a flagged sensor — <span class="tag warn">valve stays/returns closed</span>.</td>
-                </tr>
-                <tr>
-                  <td><strong>Offline local rule</strong></td>
-                  <td>LoRa uplink/downlink lost beyond N cycles.</td>
-                  <td>Node reverts to the closed-loop rule entirely locally, using only its own probes and a conservative pre-agreed daily water cap.</td>
-                  <td>If local data is also uncertain, default is <span class="tag warn">no action / valve closed</span>.</td>
-                </tr>
+                <tr><td>Realtime</td><td>Every 60 seconds</td><td>Every 5 minutes</td><td>When Wi-Fi is connected</td></tr>
+                <tr><td>Batch</td><td>Every 30 minutes</td><td>Two per day</td><td>Queue locally; upload when connected</td></tr>
               </tbody>
             </table>
           </div>
+          <p>Each observation is an independent record with <code>observation_id</code>, <code>source</code>, <code>observed_at</code>, <code>uploaded_at</code>, <code>quality.status</code>, and a typed value. Camera and sensor records keep separate times and quality states.</p>
+          <p>Contract and clearly marked sample: <a href="data/ground_truth_contract.json"><code>data/ground_truth_contract.json</code></a>. The HTML prototype uses synthetic history only; it is not connected to this hardware.</p>
         </section>
 
-        <!-- 11. PRIVACY, CONSENT & DATA GOVERNANCE ========================== -->
+        <!-- 10. OBSERVATION QUALITY ========================================= -->
+        <section id="guardrails">
+          <h2><span class="spec-num">10</span>Observation quality rules</h2>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Condition</th><th>Display rule</th></tr></thead>
+              <tbody>
+                <tr><td>Old sensor sample</td><td>Label as stale with its capture time; never present it as a current measurement.</td></tr>
+                <tr><td>Missing sensor or photo</td><td>Show “missing” and no measurement value or current timestamp.</td></tr>
+                <tr><td>Probe outside plausible range or flagged</td><td>Keep the source and quality flag visible; do not call the value accurate.</td></tr>
+                <tr><td>Missing pump contact</td><td>Show status as unknown. Never infer pump status from a command.</td></tr>
+                <tr><td>Camera photo present</td><td>Describe as qualitative surface evidence; it does not measure root-zone moisture.</td></tr>
+                <tr><td>Soil-moisture value</td><td>Calibrate the probe against local soil before presenting it as accurate.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="callout danger">This system is observation-only. There is no actuator, irrigation command endpoint, automatic fallback rule, or pump control in the prototype.</div>
+        </section>
+<!-- 11. PRIVACY, CONSENT & DATA GOVERNANCE ========================== -->
         <section id="privacy">
           <h2><span class="spec-num">11</span>Privacy, consent &amp; data governance</h2>
           <div class="callout danger">
@@ -892,7 +648,7 @@ ELSE send alert / wait</pre>
 
           <p style="margin-top:16px">
             Individual field-level data (crop choice, margin, soil chemistry, telemetry) belongs to the
-            farmer. The core farmer product (field-level decision &amp; action) never requires sharing it
+            farmer. The core farmer product (field-level decision support) never requires sharing it
             with anyone else. The optional support layer only ever sees an aggregated, consent-gated view.
           </p>
 
@@ -919,13 +675,13 @@ ELSE send alert / wait</pre>
             <table>
               <thead><tr><th>Area</th><th>MVP scope</th><th>Not needed yet</th></tr></thead>
               <tbody>
-                <tr><td><strong>Location</strong></td><td>One village or one farming area with 10–20 field polygons.</td><td>National scale.</td></tr>
+                <tr><td><strong>Location</strong></td><td>One representative plot and one next-season decision.</td><td>National scale or multi-season replay.</td></tr>
                 <tr><td><strong>Commodities</strong></td><td>Three realistic options — rice, corn (maize), and soybean.</td><td>Dozens of crops at once (mung bean and peanut remain in the model, scoped out of the pilot — Section 5).</td></tr>
                 <tr><td><strong>NASA data</strong></td><td>HLS + GPM; POWER/SMAP as additional context (as designed — see Section 2 for what is actually wired today).</td><td>Forcing every NASA portal to integrate live.</td></tr>
                 <tr><td><strong>Soil</strong></td><td>Static data per location + one testing/manual validation pass.</td><td>Full real-time soil chemistry sensors.</td></tr>
-                <tr><td><strong>IoT</strong></td><td>2–3 pilot plots with soil moisture, flow meter, and pump/valve.</td><td>Hardware for every farmer.</td></tr>
-                <tr><td><strong>Decision engine</strong></td><td>Transparent scoring/MCDA + margin formula + sensitivity analysis.</td><td>A black-box AI that's hard to explain.</td></tr>
-                <tr><td><strong>LLM</strong></td><td>Q&amp;A and explanations grounded in engine output.</td><td>LLM acting as the sole agronomist.</td></tr>
+                <tr><td><strong>IoT</strong></td><td>One read-only kit with Pi, surface camera, root-zone probe, air sensor, flow meter, and isolated pump input.</td><td>Pump control, LoRa, solar system, or a kit on every plot.</td></tr>
+                <tr><td><strong>Decision engine</strong></td><td>Soil/calendar/water/capital gates; rank feasible plans by margin after downside reserve.</td><td>Black-box score or automated resource control.</td></tr>
+                <tr><td><strong>Stress Lab</strong></td><td>3D 12-week plant replay, one crop change, and separate climate/price/harvest assumptions.</td><td>Money formulas, forecast probabilities, or multi-season replay.</td></tr>
               </tbody>
             </table>
           </div>
@@ -988,8 +744,8 @@ ELSE send alert / wait</pre>
             <li><a href="https://www.isric.org/explore/soilgrids" target="_blank" rel="noreferrer">SoilGrids (ISRIC — World Soil Information)</a> — explicitly a non-NASA source.</li>
             <li><a href="https://dataspace.copernicus.eu/explore-data/data-collections/sentinel-data/sentinel-2" target="_blank" rel="noreferrer">Copernicus Sentinel-2</a>.</li>
             <li><a href="https://harvest2market.nasaharvest.org/idn" target="_blank" rel="noreferrer">NASA Harvest — Harvest2Market, Indonesia</a>.</li>
-            <li><a href="https://www.espressif.com/sites/default/files/documentation/esp32-s3_datasheet_en.pdf" target="_blank" rel="noreferrer">Espressif ESP32-S3 datasheet</a>.</li>
-            <li><a href="https://sensirion.com/media/documents/213E6A3B/63A5A569/Datasheet_SHT3x_DIS.pdf" target="_blank" rel="noreferrer">Sensirion SHT3x (SHT31) datasheet</a>.</li>
+            <li><a href="https://www.raspberrypi.com/products/raspberry-pi-zero-2-w/" target="_blank" rel="noreferrer">Raspberry Pi Zero 2 W specifications</a>.</li>
+            <li><a href="https://www.raspberrypi.com/documentation/computers/camera_software.html" target="_blank" rel="noreferrer">Raspberry Pi camera software and still-image capture</a>.</li><li><a href="https://publications.metergroup.com/Sales%20and%20Support/METER%20Environment/Website%20Articles/how-calibrate-soil-moisture-sensors.pdf" target="_blank" rel="noreferrer">METER Group soil-moisture calibration guide</a>.</li>
           </ol>
         </section>
 
@@ -1001,7 +757,7 @@ ELSE send alert / wait</pre>
     <div class="page">
       Concept artifact for discussion and validation. This page is generated from, and cross-checked
       against, the code in <code>assets/js/engine.js</code>, <code>assets/js/data.js</code>,
-      <code>data/*.js</code>, and <code>iot-3d.html</code> as of 2026-09-25. Where the two disagree, the
+      <code>data/*.js</code>, and <code>iot-3d.html</code> as of 2026-09-27. Where the two disagree, the
       running code wins and this page should be corrected.
     </div>
   </footer>

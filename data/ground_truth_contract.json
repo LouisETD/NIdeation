@@ -1,0 +1,54 @@
+{
+  "schema_version": "1.0",
+  "node_id": "node_jt_001",
+  "field_id": "poly_idn_jt_001",
+  "purpose": "read_only_ground_truth",
+  "delivery_modes": {
+    "realtime": {
+      "sensor_interval_seconds": 60,
+      "surface_photo_interval_seconds": 300,
+      "upload": "when_wifi_connected"
+    },
+    "batch": {
+      "sensor_interval_seconds": 1800,
+      "surface_photos_per_day": 2,
+      "upload": "queue_locally_then_upload_when_connected"
+    }
+  },
+  "observation_envelopes": [
+    {
+      "observation_id": "demo_sensor_20260924T233000Z",
+      "kind": "sensor_reading",
+      "mode": "batch",
+      "source": "synthetic demo probe and sensor history",
+      "observed_at": "2026-09-24T23:30:00Z",
+      "uploaded_at": null,
+      "quality": {
+        "status": "simulated_stale",
+        "is_current": false,
+        "note": "Illustrative history only; no physical sensor is connected."
+      },
+      "value": {
+        "soil_moisture_15cm_pct_vwc": 31.05,
+        "air_temp_c": 23.9,
+        "air_humidity_pct": 86.7,
+        "flow_lpm": 0,
+        "pump_state": "off"
+      }
+    },
+    {
+      "observation_id": "camera_missing_demo",
+      "kind": "surface_image",
+      "mode": "batch",
+      "source": "Camera Module 2 (planned; no demo image captured)",
+      "observed_at": null,
+      "uploaded_at": null,
+      "quality": {
+        "status": "missing",
+        "is_current": false,
+        "note": "No camera image exists in the synthetic telemetry dataset."
+      },
+      "value": null
+    }
+  ]
+}

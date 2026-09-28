@@ -1,301 +1,135 @@
 {
   "meta": {
-    "title": "FieldShift Node v1 — Bill of Materials",
-    "disclaimer": "All unit costs are indicative, pilot-quantity engineering estimates (order of ~100-300 units) for planning purposes only. They are NOT quotes from any supplier and will move with FX rates, freight, and local import duty.",
-    "pilot_quantity_assumption": "100-300 units per production batch",
-    "fx_note": "Indicative FX used throughout this page: 1 USD = 15,800 IDR (Sept 2026 planning rate).",
-    "usd_to_idr": 15800,
-    "radio_band": "AS923 (Indonesia / South-East Asia ISM allocation)",
-    "last_updated": "2026-09-25"
+    "title": "FieldShift Ground Truth Pilot Kit — Indicative BOM",
+    "disclaimer": "Planning list only. Prices require local quotes. Check interface compatibility, enclosure protection, and electrical isolation before field installation.",
+    "scope": "One read-only kit for one plot",
+    "power": "Protected 5 V supply",
+    "connectivity": "Wi-Fi",
+    "last_updated": "2026-09-27"
   },
   "device_parts": [
     {
-      "part_id": "solar_panel",
-      "name": "6 V 2 W Polycrystalline Solar Panel",
+      "part_id": "pi-zero-2-w",
+      "name": "Raspberry Pi Zero 2 W",
       "spec": {
-        "Rated power": "2 W (Pmax)",
-        "Vmp / Voc": "6 V / 7.2 V",
-        "Type": "Polycrystalline, epoxy-encapsulated",
-        "Mount": "15° tilt bracket, north-facing at install"
+        "Processor": "Quad-core 64-bit Arm Cortex-A53",
+        "Connectivity": "2.4 GHz Wi-Fi",
+        "Camera": "CSI camera connector",
+        "Power": "5 V USB"
       },
       "qty": 1,
-      "unit_cost_usd": 3.50,
-      "unit_cost_idr": 55300,
-      "supplier_class": "commodity",
-      "layer": "power",
-      "why": "Sized so a fraction of a tropical day's insolation fully recharges the pack even after mounting-angle, dust, and controller losses, keeping the node net-energy-positive on all but extended monsoon overcast.",
-      "datasheet_url": null
+      "unit_cost_usd": null,
+      "unit_cost_idr": null,
+      "supplier_class": "local quote needed",
+      "layer": "compute",
+      "why": "Captures timestamped readings and queues records locally when Wi-Fi is unavailable.",
+      "datasheet_url": "https://www.raspberrypi.com/products/raspberry-pi-zero-2-w/"
     },
     {
-      "part_id": "enclosure_lid",
-      "name": "IP65 Enclosure Lid",
+      "part_id": "camera-module-2",
+      "name": "Camera Module 2 + compatible ribbon",
       "spec": {
-        "Material": "UV-stabilised ABS/PC blend",
-        "Ingress rating": "IP65",
-        "Feature": "Clear inspection window over status LED",
-        "Fastening": "4x captive stainless screws + gasket"
+        "Role": "Fixed view of soil surface",
+        "Measurement": "Qualitative visual evidence",
+        "Interval": "Every 5 min realtime; two photos daily in batch"
       },
       "qty": 1,
-      "unit_cost_usd": 4.00,
-      "unit_cost_idr": 63200,
-      "supplier_class": "commodity",
-      "layer": "enclosure",
-      "why": "UV-stabilised plastic and a sealed lid keep tropical sun and wind-driven rain out of the electronics bay without needing a metal housing, which would add cost and corrosion risk in humid, saline coastal soils.",
-      "datasheet_url": null
+      "unit_cost_usd": null,
+      "unit_cost_idr": null,
+      "supplier_class": "local quote needed",
+      "layer": "imaging",
+      "why": "Documents visible surface condition; does not measure subsurface moisture or soil chemistry.",
+      "datasheet_url": "https://www.raspberrypi.com/documentation/computers/camera_software.html"
     },
     {
-      "part_id": "enclosure_base",
-      "name": "IP65 Enclosure Base",
+      "part_id": "soil-moisture-probe",
+      "name": "Calibratable root-zone soil moisture probe",
       "spec": {
-        "Material": "UV-stabilised ABS/PC blend",
-        "Ingress rating": "IP65",
-        "Gasket": "Closed-cell EPDM lip seal",
-        "Mounting": "Integrated stake bracket"
+        "Role": "Numeric soil moisture",
+        "Installation": "One probe in root zone",
+        "Calibration": "Calibrate against local soil before reporting accuracy"
       },
       "qty": 1,
-      "unit_cost_usd": 5.50,
-      "unit_cost_idr": 86900,
-      "supplier_class": "commodity",
-      "layer": "enclosure",
-      "why": "Carries the stake bracket and the single M12 cable entry, so there is exactly one sealed penetration to maintain in the field rather than several.",
-      "datasheet_url": null
+      "unit_cost_usd": null,
+      "unit_cost_idr": null,
+      "supplier_class": "local quote needed",
+      "layer": "soil sensing",
+      "why": "Provides a numeric moisture reading; local calibration is needed for stronger volumetric water content accuracy.",
+      "datasheet_url": "https://publications.metergroup.com/Sales%20and%20Support/METER%20Environment/Website%20Articles/how-calibrate-soil-moisture-sensors.pdf"
     },
     {
-      "part_id": "pcb",
-      "name": "Main PCB — ESP32-S3 + SX1262 LoRa",
+      "part_id": "air-temperature-humidity",
+      "name": "Air temperature / humidity sensor",
       "spec": {
-        "MCU": "ESP32-S3 (dual-core Xtensa LX7)",
-        "Radio": "Semtech SX1262 LoRa transceiver",
-        "Band": "AS923 (Indonesia / SE Asia ISM)",
-        "Interfaces": "SDI-12, I2C, ADC, GPIO relay driver"
-      },
-      "qty": 1,
-      "unit_cost_usd": 9.50,
-      "unit_cost_idr": 150100,
-      "supplier_class": "specialist",
-      "layer": "comms",
-      "why": "ESP32-S3 gives enough headroom to run sensor sampling and the local safety rules even when the LoRa link is down; SX1262 on AS923 is the correct regional radio band and duty-cycle profile for Indonesia.",
-      "datasheet_url": "https://www.espressif.com/sites/default/files/documentation/esp32-s3_datasheet_en.pdf"
-    },
-    {
-      "part_id": "battery",
-      "name": "18650 Li-ion Cell (2x)",
-      "spec": {
-        "Chemistry": "Li-ion 18650, protected cell",
-        "Voltage": "3.7 V nominal per cell",
-        "Capacity": "3400 mAh per cell (2x in parallel = 6,800 mAh pack)",
-        "Charge path": "Via solar charge controller"
-      },
-      "qty": 2,
-      "unit_cost_usd": 3.00,
-      "unit_cost_idr": 47400,
-      "supplier_class": "commodity",
-      "layer": "power",
-      "why": "Two cells in parallel double runtime for a small cost step and let the pack keep the valve-actuation current spikes from sagging the rail, while staying inside a form factor that fits the sealed enclosure.",
-      "datasheet_url": null
-    },
-    {
-      "part_id": "antenna",
-      "name": "AS923 Whip + Helical Antenna",
-      "spec": {
-        "Type": "Whip monopole with helical loading coil",
-        "Band": "AS923 (915-928 MHz region)",
-        "Gain": "~2 dBi",
-        "Connector": "SMA (reverse-polarity)"
-      },
-      "qty": 1,
-      "unit_cost_usd": 2.20,
-      "unit_cost_idr": 34760,
-      "supplier_class": "commodity",
-      "layer": "comms",
-      "why": "External helical antenna clears the enclosure and canopy for a cleaner line of sight to the gateway than a PCB trace antenna could give at this radio budget.",
-      "datasheet_url": null
-    },
-    {
-      "part_id": "cable_gland",
-      "name": "M12 IP68 Cable Gland",
-      "spec": {
-        "Type": "M12 IP68 nylon cable gland",
-        "Seal": "Dual O-ring + compression grommet",
-        "Purpose": "Strain relief where the sensor cable exits the base"
-      },
-      "qty": 1,
-      "unit_cost_usd": 1.10,
-      "unit_cost_idr": 17380,
-      "supplier_class": "commodity",
-      "layer": "enclosure",
-      "why": "The single most common field failure on buried-sensor IoT nodes is water tracking in along the cable; a proper IP68 gland with strain relief removes that failure mode for a little over a dollar.",
-      "datasheet_url": null
-    },
-    {
-      "part_id": "sensor_cable",
-      "name": "Shielded Sensor Cable",
-      "spec": {
-        "Construction": "4-core shielded, direct-burial rated",
-        "Length": "~0.6 m to 15 cm probe, ~1.0 m to 40 cm probe",
-        "Protection": "Potted at both ends against moisture ingress"
-      },
-      "qty": 1,
-      "unit_cost_usd": 2.50,
-      "unit_cost_idr": 39500,
-      "supplier_class": "commodity",
-      "layer": "sensing",
-      "why": "Direct-burial-rated cable with potted ends survives being backfilled with wet soil for multiple growing seasons without the SDI-12 signal degrading.",
-      "datasheet_url": null
-    },
-    {
-      "part_id": "probe_15cm",
-      "name": "Capacitive Soil Moisture Probe — 15 cm",
-      "spec": {
-        "Type": "Capacitive (FDR), corrosion-free electrodes",
-        "Depth": "15 cm (shallow / feeder root zone)",
-        "Accuracy": "±3% volumetric water content",
-        "Interface": "SDI-12"
-      },
-      "qty": 1,
-      "unit_cost_usd": 18.00,
-      "unit_cost_idr": 284400,
-      "supplier_class": "specialist",
-      "layer": "sensing",
-      "why": "Capacitive sensing avoids the electrode corrosion that kills resistive gypsum-block probes within a season in wet tropical soils; the shallow depth tracks the fast-draining feeder-root zone the irrigation rule reacts to first.",
-      "datasheet_url": null
-    },
-    {
-      "part_id": "probe_40cm",
-      "name": "Capacitive Soil Moisture Probe — 40 cm",
-      "spec": {
-        "Type": "Capacitive (FDR), corrosion-free electrodes",
-        "Depth": "40 cm (deep root reserve zone)",
-        "Accuracy": "±3% volumetric water content",
-        "Interface": "SDI-12"
-      },
-      "qty": 1,
-      "unit_cost_usd": 19.50,
-      "unit_cost_idr": 308100,
-      "supplier_class": "specialist",
-      "layer": "sensing",
-      "why": "A second, deeper probe distinguishes a genuinely dry root zone from a surface that has simply dried between waterings, which is what keeps the closed-loop rule from over-irrigating.",
-      "datasheet_url": null
-    },
-    {
-      "part_id": "mounting_stake",
-      "name": "Galvanized Mounting Stake",
-      "spec": {
-        "Material": "Galvanized steel, tapered driven tip",
-        "Length": "~50 cm (about 35 cm driven into soil)",
-        "Purpose": "Anchors the enclosure above canopy height"
-      },
-      "qty": 1,
-      "unit_cost_usd": 3.00,
-      "unit_cost_idr": 47400,
-      "supplier_class": "commodity",
-      "layer": "enclosure",
-      "why": "Keeps the electronics and antenna above the crop canopy for both sun exposure and radio line-of-sight, and above casual contact from livestock or field tools.",
-      "datasheet_url": null
-    },
-    {
-      "part_id": "soil_block",
-      "name": "Soil Cross-Section (visualization only)",
-      "spec": {
-        "Role": "Visualization aid, not a purchased part",
-        "Represents": "Native soil profile around the probes",
-        "Depth markers": "15 cm and 40 cm probe tips"
-      },
-      "qty": 0,
-      "unit_cost_usd": 0,
-      "unit_cost_idr": 0,
-      "supplier_class": "n/a",
-      "layer": "context",
-      "why": "Included in the 3D model purely so probe depth relative to the root zone is legible; it is not a bill-of-materials line item.",
-      "datasheet_url": null
-    },
-    {
-      "part_id": "air_sensor",
-      "name": "SHT31 Air Temperature / Humidity Sensor",
-      "spec": {
-        "Sensor": "SHT31 (or equivalent) digital temp/RH",
+        "Role": "Plot microclimate",
         "Interface": "I2C",
-        "Accuracy": "±2% RH, ±0.3°C",
-        "Mount": "Vented, conformal-coated boss in the lid"
+        "Measurement": "Air temperature and relative humidity"
       },
       "qty": 1,
-      "unit_cost_usd": 2.80,
-      "unit_cost_idr": 44240,
-      "supplier_class": "commodity",
-      "layer": "sensing",
-      "why": "Cheap microclimate read that lets the decision layer flag heat/humidity stress independently of soil moisture; mounted on the main PCB, shown as one of the small chip volumes in the 3D model.",
-      "datasheet_url": "https://sensirion.com/media/documents/213E6A3B/63A5A569/Datasheet_SHT3x_DIS.pdf"
+      "unit_cost_usd": null,
+      "unit_cost_idr": null,
+      "supplier_class": "local quote needed",
+      "layer": "microclimate",
+      "why": "Adds local air context beside regional weather data.",
+      "datasheet_url": null
     },
     {
-      "part_id": "charge_controller",
-      "name": "Solar Li-ion Charge Controller",
+      "part_id": "inline-flow-meter",
+      "name": "Inline water flow meter",
       "spec": {
-        "Type": "CN3791 MPPT (or TP4056 linear) charge controller",
-        "Input": "Solar panel, up to 2 W",
-        "Output": "Regulated charge to the 2x 18650 pack",
-        "Protection": "Over-charge / over-discharge / reverse polarity"
+        "Role": "Water volume / flow rate",
+        "Interface": "Pulse output with level interface as required",
+        "Installation": "Existing irrigation pipe"
       },
       "qty": 1,
-      "unit_cost_usd": 2.40,
-      "unit_cost_idr": 37920,
-      "supplier_class": "commodity",
-      "layer": "power",
-      "why": "Protects the pack across a multi-year unattended deployment and gets more usable energy out of a very small 2 W panel than a bare linear charger would; mounted on the main PCB.",
+      "unit_cost_usd": null,
+      "unit_cost_idr": null,
+      "supplier_class": "local quote needed",
+      "layer": "water sensing",
+      "why": "Measures delivered water without controlling the irrigation line.",
+      "datasheet_url": null
+    },
+    {
+      "part_id": "isolated-pump-status-input",
+      "name": "Isolated pump-status input",
+      "spec": {
+        "Role": "Read existing low-voltage status contact",
+        "Interface": "Opto-isolated digital input",
+        "Output": "Read-only status"
+      },
+      "qty": 1,
+      "unit_cost_usd": null,
+      "unit_cost_idr": null,
+      "supplier_class": "local quote needed",
+      "layer": "status sensing",
+      "why": "Reads compatible pump status. Does not switch mains or send pump commands.",
+      "datasheet_url": null
+    },
+    {
+      "part_id": "power-enclosure-mount",
+      "name": "Protected 5 V supply, enclosure, mount, and cables",
+      "spec": {
+        "Power": "Protected 5 V USB supply",
+        "Connectivity": "Wi-Fi",
+        "Purpose": "Weather protection and mounting",
+        "Excluded": "Solar sizing and battery system"
+      },
+      "qty": 1,
+      "unit_cost_usd": null,
+      "unit_cost_idr": null,
+      "supplier_class": "local quote needed",
+      "layer": "power and mounting",
+      "why": "Keeps pilot power and mounting simple for a student-built, one-plot kit.",
       "datasheet_url": null
     }
   ],
-  "device_total_usd": 80.00,
-  "device_total_idr": 1264000,
-  "gateway_actuation_parts": [
-    {
-      "part_id": "solenoid_valve_12v",
-      "name": "12 V DC Solenoid Valve",
-      "spec": {
-        "Type": "12 V DC normally-closed solenoid valve",
-        "Fail-safe state": "Closed (de-energised = closed)",
-        "Port size": "1/2 in typical drip/riser fitting"
-      },
-      "qty": 1,
-      "unit_cost_usd": 8.50,
-      "unit_cost_idr": 134300,
-      "supplier_class": "commodity",
-      "layer": "actuation",
-      "why": "Normally-closed construction means any power loss, wiring fault, or controller crash defaults the line shut — matching the guardrail that irrigation must fail closed, never open.",
-      "datasheet_url": null
-    },
-    {
-      "part_id": "relay_driver_board",
-      "name": "Opto-isolated Relay / Driver Board",
-      "spec": {
-        "Type": "Opto-isolated relay/MOSFET driver board",
-        "Rating": "12 V, up to 5 A switched",
-        "Control": "GPIO signal from the node/gateway controller"
-      },
-      "qty": 1,
-      "unit_cost_usd": 3.20,
-      "unit_cost_idr": 50560,
-      "supplier_class": "commodity",
-      "layer": "actuation",
-      "why": "Opto-isolation keeps a shorted valve coil or miswired 12 V line from taking out the low-voltage logic side of the gateway.",
-      "datasheet_url": null
-    },
-    {
-      "part_id": "flow_meter_hall",
-      "name": "Hall-Effect Water Flow Meter",
-      "spec": {
-        "Type": "Hall-effect pulse flow meter (YF-S201 class)",
-        "Output": "Pulse frequency proportional to flow rate",
-        "Purpose": "Confirms real flow during the Verify step"
-      },
-      "qty": 1,
-      "unit_cost_usd": 4.50,
-      "unit_cost_idr": 71100,
-      "supplier_class": "commodity",
-      "layer": "actuation",
-      "why": "Without a flow read, an open command and an actually-open valve are only assumed to be the same thing; this is what feeds the no-flow alert guardrail.",
-      "datasheet_url": null
-    }
-  ],
-  "gateway_actuation_total_usd": 16.20,
-  "gateway_actuation_total_idr": 255960
+  "device_total_usd": null,
+  "device_total_idr": null,
+  "excluded_components": [
+    "Pump-actuation relay",
+    "Irrigation valve",
+    "LoRa radio",
+    "Solar panel and battery system",
+    "Mains switching"
+  ]
 }

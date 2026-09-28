@@ -74,10 +74,12 @@
     'Viable Alternative': 'rec-mid',
     'Marginal': 'rec-mid',
     'Not Recommended': 'rec-low',
-    'Not Feasible': 'rec-low'
+    'Not Feasible': 'rec-low',
+    'Risk-adjusted leader': 'rec-high',
+    'Feasible alternative': 'rec-mid'
   };
 
-  var TAB_IDS = ['setup', 'state', 'scenarios', 'plan', 'iot'];
+  var TAB_IDS = ['setup', 'state', 'scenarios', 'plan', 'iot', 'stress'];
 
   var PHASE_COLOR = {
     'Planting-Early Veg': '#d9a441',
@@ -86,17 +88,6 @@
     'Harvest': '#76550f',
     'Out of Season': '#eef4e9'
   };
-
-  var GUARDRAILS = [
-    { id: 'manual-override', label: 'Manual override' },
-    { id: 'max-runtime', label: 'Max runtime' },
-    { id: 'no-flow-alert', label: 'No-flow alert' },
-    { id: 'sensor-quality', label: 'Sensor-quality flag' },
-    { id: 'offline-rule', label: 'Offline local rule' }
-  ];
-
-  var CROP_MOISTURE_THRESHOLD = 30; // % VWC at 15cm — illustrative demo threshold, documented as such in the UI
-  var MAX_RUNTIME_MIN = 20; // matches the "Max runtime" guardrail cap documented on iot-3d.html
 
   var FIELD_POLYGON_COORDS = [
     [-7.7466, 112.5965],
@@ -118,8 +109,15 @@
       irrigation_type: defaultFarmer.irrigation_type || 'Rainfed',
       priorities: (defaultFarmer.priorities || ['Save Water', 'Reduce Climate Risk']).slice(),
       area_ha: defaultFarmer.area_ha || 1,
-      capital_available_idr_per_ha: defaultFarmer.capital_available_idr_per_ha || 15000000
+      capital_available_idr_per_ha: defaultFarmer.capital_available_idr_per_ha || 15000000,
+      water_budget_mm: defaultFarmer.water_budget_mm === undefined ? 0 : defaultFarmer.water_budget_mm
     },
+    stress: {
+      preset: 'normal', rainfall_pct: 100, irrigation_pct: 100, temperature_c: 0,
+      price_change_pct: 0, yield_change_pct: 0, week: 7, overlay: 'condition',
+      adapted_crop_key: null, playback: false
+    },
+    telemetryMode: 'realtime',
     _lastFieldState: null,
     _lastScenarios: null,
     _cycleRunning: false
@@ -128,6 +126,7 @@
   var els = {};
   var charts = {};
   var leafletMap = null;
+  var stressPlaybackTimer = null;
 
   // =========================================================================
   // SOURCE-CHIP HELPERS
@@ -162,6 +161,7 @@
     els.inputPrevCrop = document.getElementById('input-prev-crop');
     els.inputIrrigation = document.getElementById('input-irrigation');
     els.inputCapital = document.getElementById('input-capital');
+    els.inputWaterBudget = document.getElementById('input-water-budget');
     els.priorityCheckboxes = document.getElementById('priority-checkboxes');
     els.fieldSummaryLine = document.getElementById('field-summary-line');
 
@@ -179,12 +179,7 @@
     els.planContent = document.getElementById('plan-content');
 
     els.telemetrySourceNote = document.getElementById('telemetry-source-note');
-    els.btnRunCycle = document.getElementById('btn-run-cycle');
-    els.inputManualOverride = document.getElementById('input-manual-override');
-    els.guardrailRow = document.getElementById('guardrail-row');
-    els.valveDot = document.getElementById('valve-dot');
-    els.valveLabel = document.getElementById('valve-label');
-    els.cycleLog = document.getElementById('cycle-log');
+    els.stressSummary = document.getElementById('stress-summary');
 
     els.payloadModal = document.getElementById('payload-modal');
     els.payloadJson = document.getElementById('payload-json');
@@ -222,6 +217,7 @@
   }
 
   function selectTab(id) {
+    if (id !== 'stress') stopStressPlayback();
     TAB_IDS.forEach(function (t) {
       var btn = document.getElementById('tab-btn-' + t);
       var panel = document.getElementById('tab-panel-' + t);
@@ -233,6 +229,9 @@
     if (leafletMap) {
       setTimeout(function () { leafletMap.invalidateSize(); }, 60);
     }
+    if (id === 'stress' && window.FS.stressView) {
+      setTimeout(function () { window.FS.stressView.resize(); }, 60);
+    }
   }
 
   // =========================================================================
@@ -242,6 +241,7 @@
   function buildFieldSetupControls() {
     els.inputArea.value = state.inputs.area_ha;
     els.inputCapital.value = state.inputs.capital_available_idr_per_ha;
+    els.inputWaterBudget.value = state.inputs.water_budget_mm;
     els.inputIrrigation.value = state.inputs.irrigation_type;
 
     var cropsObj = (window.FS_DATA.crops && window.FS_DATA.crops.crops) || {};
@@ -279,6 +279,11 @@
       state.inputs.capital_available_idr_per_ha = isNaN(v) || v < 0 ? 0 : v;
       renderAll();
     });
+    els.inputWaterBudget.addEventListener('input', function () {
+      var v = parseFloat(els.inputWaterBudget.value);
+      state.inputs.water_budget_mm = isNaN(v) || v < 0 ? 0 : Math.min(1600, v);
+      renderAll();
+    });
     els.priorityCheckboxes.addEventListener('change', function () {
       var checked = Array.prototype.slice.call(els.priorityCheckboxes.querySelectorAll('input[type="checkbox"]:checked'));
       state.inputs.priorities = checked.map(function (c) { return c.value; });
@@ -289,7 +294,7 @@
   function renderFieldSummary(fieldState) {
     var f = fieldState.farmer_input;
     els.fieldSummaryLine.textContent = 'Previous crop: ' + f.previous_crop + ' · Irrigation: ' + f.irrigation_type +
-      ' · Area: ' + f.area_ha + ' ha · Capital: ' + fmtIdr(f.capital_available_idr_per_ha) + '/ha · Priorities: ' +
+      ' · Area: ' + f.area_ha + ' ha · Capital: ' + fmtIdr(f.capital_available_idr_per_ha) + '/ha · Irrigation budget: ' + fmtNum(f.water_budget_mm) + ' mm · Priorities: ' +
       (f.priorities && f.priorities.length ? f.priorities.join(', ') : 'none selected');
   }
 
@@ -616,13 +621,13 @@
 
     return '<div class="card scenario-card" data-scenario-id="' + escapeHtml(id) + '">' + head +
       '<div class="score-bars">' + scoreBars + '</div>' +
-      '<div class="scenario-total">Weighted total: ' + s.total + ' / 100</div>' +
+      '<div class="scenario-total">Risk-adjusted margin: ' + fmtIdr(s.economics.risk_adjusted_margin_idr_per_ha) + '/ha · Agronomic fit: ' + s.total + '/100</div>' +
       '<p class="trade-off">' + escapeHtml(s.trade_off_analysis) + '</p>' +
       '<table class="econ-table"><tbody>' + econRows + '</tbody></table>' +
       '<div class="margin-range">' +
-        '<span>Low: ' + fmtIdr(econ.expected_net_margin_idr_per_ha.low) + '</span>' +
+        '<span>Downside case: ' + fmtIdr(econ.downside_margin_idr_per_ha) + '</span>' +
         '<span>Expected: ' + fmtIdr(econ.expected_net_margin_idr_per_ha.expected) + '</span>' +
-        '<span>High: ' + fmtIdr(econ.expected_net_margin_idr_per_ha.high) + '</span>' +
+        '<span>Risk reserve: ' + fmtIdr(econ.risk_reserve_idr_per_ha) + '</span>' +
       '</div>' +
       '<div class="price-slider-row">' +
         '<label for="price-slider-' + escapeHtml(id) + '">Price sensitivity: <span class="price-slider-readout" id="price-out-' + escapeHtml(id) + '-delta">0%</span></label>' +
@@ -635,6 +640,186 @@
   function renderScenarios(scenarios, data) {
     var cropsObj = data.crops.crops;
     els.scenarioGrid.innerHTML = scenarios.map(function (s) { return renderScenarioCard(s, cropsObj); }).join('');
+  }
+
+  function cropKeyForDisplayName(crops, name) {
+    return Object.keys(crops).find(function (key) { return crops[key].name === name; }) || null;
+  }
+
+  function cropLabel(crop) {
+    return crop ? crop.name : 'Crop unavailable';
+  }
+
+  function renderStressResult(label, crop, result) {
+    var riskClass = result.risk_index >= 55 ? 'high' : result.risk_index >= 25 ? 'moderate' : 'low';
+    return '<article class="card stress-result-card">' +
+      '<div class="stress-result-top"><div><div class="section-kicker">' + escapeHtml(label) + '</div><h3>' + escapeHtml(cropLabel(crop)) + '</h3></div>' +
+      '<span class="stress-risk-pill risk-' + riskClass + '">' + escapeHtml(result.risk_label) + ' stress</span></div>' +
+      '<dl class="stress-result-metrics">' +
+      '<div><dt>Plant condition index</dt><dd>' + result.plant_condition_index + '<small> / 100</small></dd></div>' +
+      '<div><dt>Water stress</dt><dd>' + result.water_stress_pct + '<small> / 100</small></dd></div>' +
+      '<div><dt>Heat stress</dt><dd>' + result.heat_stress_pct + '<small> / 100</small></dd></div>' +
+      '<div><dt>Leading pressure</dt><dd>' + escapeHtml(result.leading_driver) + '</dd></div>' +
+      '</dl></article>';
+  }
+
+  function renderStressLab(data) {
+    var crops = data.crops.crops;
+    var scenarios = state._lastScenarios || engine.listScenarios(state.inputs, data);
+    var baselineScenario = scenarios.find(function (scenario) { return scenario.feasible; }) || scenarios[0];
+    var hasFeasibleBaseline = !!(baselineScenario && baselineScenario.feasible);
+    var baselineKey = baselineScenario ? cropKeyForDisplayName(crops, baselineScenario.rotation_plan[1]) : null;
+    if (!baselineKey) baselineKey = cropKeyForDisplayName(crops, state.inputs.previous_crop) || Object.keys(crops)[0];
+
+    var alternativeSelect = document.getElementById('stress-adapted-crop');
+    var baselineCrop = crops[baselineKey];
+    var alternateKeys = Object.keys(crops).filter(function (key) { return key !== baselineKey; });
+    var bestAlternative = scenarios.find(function (scenario) {
+      return scenario.feasible && scenario.rotation_plan[1] !== baselineCrop.name;
+    });
+    var suggestedKey = bestAlternative ? cropKeyForDisplayName(crops, bestAlternative.rotation_plan[1]) : null;
+    if (!suggestedKey || suggestedKey === baselineKey) {
+      suggestedKey = alternateKeys.slice().sort(function (a, b) {
+        return crops[a].water_requirement_mm - crops[b].water_requirement_mm;
+      })[0];
+    }
+    if (alternateKeys.indexOf(state.stress.adapted_crop_key) === -1) state.stress.adapted_crop_key = suggestedKey;
+    alternativeSelect.innerHTML = alternateKeys.map(function (key) {
+      return '<option value="' + escapeHtml(key) + '">' + escapeHtml(crops[key].name) + '</option>';
+    }).join('');
+    alternativeSelect.value = state.stress.adapted_crop_key;
+    var adaptedCrop = crops[state.stress.adapted_crop_key] || crops[suggestedKey];
+
+    var preset = engine.stressLabPresets[state.stress.preset] || { label: 'Custom case' };
+    document.querySelectorAll('[data-stress]').forEach(function (button) {
+      var active = button.getAttribute('data-stress') === state.stress.preset;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+    ['rainfall_pct', 'irrigation_pct', 'temperature_c', 'price_change_pct', 'yield_change_pct'].forEach(function (key) {
+      var input = document.querySelector('[data-stress-input="' + key + '"]');
+      input.value = state.stress[key];
+    });
+    document.getElementById('stress-rainfall-value').textContent = state.stress.rainfall_pct + '%';
+    document.getElementById('stress-irrigation-value').textContent = state.stress.irrigation_pct + '%';
+    document.getElementById('stress-temperature-value').textContent = '+' + Number(state.stress.temperature_c).toFixed(1).replace('.0', '') + '°C';
+    document.getElementById('stress-price-value').textContent = (state.stress.price_change_pct > 0 ? '+' : '') + state.stress.price_change_pct + '%';
+    document.getElementById('stress-yield-value').textContent = (state.stress.yield_change_pct > 0 ? '+' : '') + state.stress.yield_change_pct + '%';
+    document.getElementById('stress-week').value = state.stress.week;
+    document.getElementById('stress-week-label').textContent = 'Week ' + state.stress.week + ' · ' + (state.stress.week <= 3 ? 'establishment' : state.stress.week <= 6 ? 'canopy growth' : state.stress.week <= 9 ? 'reproductive stage' : 'grain fill and harvest');
+    var playButton = document.getElementById('stress-play');
+    playButton.textContent = state.stress.playback ? 'Pause' : 'Play';
+    playButton.setAttribute('aria-label', state.stress.playback ? 'Pause season replay' : 'Play season replay');
+    document.querySelectorAll('[data-stress-overlay]').forEach(function (button) {
+      var active = button.getAttribute('data-stress-overlay') === state.stress.overlay;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+
+    var config = Object.assign({}, state.stress, { week: state.stress.week });
+    var baseline = engine.simulatePlantStress(baselineCrop, config);
+    var adapted = engine.simulatePlantStress(adaptedCrop, config);
+    var baselineLabel = hasFeasibleBaseline ? 'Plan baseline' : 'Candidate · no feasible plan';
+    document.getElementById('stress-scene-title').textContent = hasFeasibleBaseline ? 'Plan baseline vs one crop change' : 'Candidate crop stress comparison';
+    document.getElementById('stress-baseline-label').textContent = baselineLabel + ' · ' + baselineCrop.name;
+    document.getElementById('stress-adapted-label').textContent = 'One-crop change · ' + adaptedCrop.name;
+    var caseLabel = preset.label === 'Custom case' ? preset.label : preset.label + ' case';
+    els.stressSummary.textContent = (hasFeasibleBaseline ? '' : 'No crop currently clears plan gates; models below are candidates only. ') +
+      caseLabel + ' · rainfall ' + state.stress.rainfall_pct + '% · irrigation ' +
+      state.stress.irrigation_pct + '% · +' + state.stress.temperature_c + '°C · week ' + state.stress.week +
+      '. Plant indices and risk bands are illustrative, not local measurements or a yield forecast.';
+
+    var reserveIndex = Math.min(baseline.water_reserve_index, adapted.water_reserve_index);
+    var reserveLabel = reserveIndex >= 85 ? 'Buffered' : reserveIndex >= 65 ? 'Tight' : 'Low';
+    var marketLabel = state.stress.price_change_pct <= -20 ? 'Price headwind' : state.stress.price_change_pct < 0 ? 'Softer price assumption' : state.stress.price_change_pct > 0 ? 'Price tailwind' : 'Price unchanged';
+    var harvestLabel = state.stress.yield_change_pct <= -10 ? 'Lower harvest assumption' : state.stress.yield_change_pct >= 10 ? 'Higher harvest assumption' : 'Harvest near baseline';
+    document.getElementById('stress-results').innerHTML =
+      renderStressResult(baselineLabel, baselineCrop, baseline) + renderStressResult('One-crop change', adaptedCrop, adapted) +
+      '<article class="card stress-context-card"><div><span>Water reserve</span><b>' + reserveLabel + ' · ' + reserveIndex + '/100</b><small>Illustrative field-resource index</small></div>' +
+      '<div><span>Profitability context</span><b>' + marketLabel + '</b><small>Price assumption only; no revenue or margin calculated</small></div>' +
+      '<div><span>Harvest scenario</span><b>' + harvestLabel + ' · ' + (state.stress.yield_change_pct > 0 ? '+' : '') + state.stress.yield_change_pct + '%</b><small>Explicit user assumption; climate does not set harvest</small></div></article>';
+
+    if (window.FS.stressView) {
+      window.FS.stressView.update({
+        baselineKey: baselineKey,
+        adaptedKey: state.stress.adapted_crop_key,
+        baselineName: baselineCrop.name,
+        adaptedName: adaptedCrop.name,
+        baseline: baseline,
+        adapted: adapted,
+        overlay: state.stress.overlay,
+        harvestChangePct: state.stress.yield_change_pct
+      });
+    }
+  }
+
+  function stopStressPlayback() {
+    if (stressPlaybackTimer) window.clearInterval(stressPlaybackTimer);
+    stressPlaybackTimer = null;
+    state.stress.playback = false;
+    var button = document.getElementById('stress-play');
+    if (button) {
+      button.textContent = 'Play';
+      button.setAttribute('aria-label', 'Play season replay');
+    }
+  }
+
+  function wireStressLab() {
+    document.querySelectorAll('[data-stress]').forEach(function (button) {
+      button.addEventListener('click', function () {
+        stopStressPlayback();
+        var presetKey = button.getAttribute('data-stress');
+        state.stress.preset = presetKey;
+        Object.assign(state.stress, engine.stressLabPresets[presetKey]);
+        renderAll();
+      });
+    });
+    document.querySelectorAll('[data-stress-input]').forEach(function (input) {
+      input.addEventListener('input', function () {
+        stopStressPlayback();
+        state.stress[input.getAttribute('data-stress-input')] = Number(input.value);
+        state.stress.preset = 'custom';
+        renderAll();
+      });
+    });
+    document.getElementById('stress-adapted-crop').addEventListener('change', function (event) {
+      stopStressPlayback();
+      state.stress.adapted_crop_key = event.target.value;
+      renderAll();
+    });
+    document.getElementById('stress-week').addEventListener('input', function (event) {
+      stopStressPlayback();
+      state.stress.week = Number(event.target.value);
+      renderAll();
+    });
+    document.getElementById('stress-play').addEventListener('click', function () {
+      if (stressPlaybackTimer) {
+        stopStressPlayback();
+        renderStressLab(dataApi.getAll());
+        return;
+      }
+      if (state.stress.week >= 12) state.stress.week = 1;
+      state.stress.playback = true;
+      renderStressLab(dataApi.getAll());
+      stressPlaybackTimer = window.setInterval(function () {
+        state.stress.week += 1;
+        if (state.stress.week >= 12) stopStressPlayback();
+        renderStressLab(dataApi.getAll());
+      }, 800);
+    });
+    document.querySelectorAll('[data-stress-overlay]').forEach(function (button) {
+      button.addEventListener('click', function () {
+        stopStressPlayback();
+        state.stress.overlay = button.getAttribute('data-stress-overlay');
+        renderAll();
+      });
+    });
+    document.querySelectorAll('[data-telemetry-mode]').forEach(function (button) {
+      button.addEventListener('click', function () {
+        state.telemetryMode = button.getAttribute('data-telemetry-mode');
+        renderTelemetryCharts();
+      });
+    });
   }
 
   function wireScenarioSliderDelegation() {
@@ -735,7 +920,7 @@
 
     var phases = [
       { name: 'Establishment', shareWater: 0.30, moistureTarget: '25–30% VWC at 15cm' },
-      { name: 'Vegetative / Reproductive', shareWater: 0.50, moistureTarget: '20–25% VWC at 15cm, watch the 40cm reserve' },
+      { name: 'Vegetative / Reproductive', shareWater: 0.50, moistureTarget: '20–25% VWC at 15cm; check local calibration' },
       { name: 'Ripening', shareWater: 0.20, moistureTarget: '15–20% VWC, allow gradual dry-down' }
     ];
     var phaseRows = phases.map(function (p) {
@@ -808,19 +993,46 @@
   }
 
   // =========================================================================
-  // IOT MONITOR TAB
+  // READ-ONLY IOT GROUND TRUTH
   // =========================================================================
 
   function renderTelemetryCharts() {
     var t = window.FS_DATA.telemetry;
-    els.telemetrySourceNote.textContent = t.source + ' — ' + t.duration_hours + 'h of history at ' +
-      t.interval_minutes + '-minute intervals.';
+    ['moistureFlow', 'microclimate'].forEach(function (key) {
+      if (charts[key]) charts[key].destroy();
+      charts[key] = null;
+    });
+    var mode = state.telemetryMode;
+    var modeConfig = t.delivery_modes[mode];
+    els.telemetrySourceNote.textContent = t.source + ' — synthetic demonstration data; readings are not live.';
+    document.querySelectorAll('[data-telemetry-mode]').forEach(function (button) {
+      button.classList.toggle('active', button.getAttribute('data-telemetry-mode') === mode);
+      button.setAttribute('aria-pressed', button.getAttribute('data-telemetry-mode') === mode ? 'true' : 'false');
+    });
+    document.getElementById('telemetry-mode-note').textContent = mode === 'realtime'
+      ? 'Pilot target: sensor sample every ' + modeConfig.sensor_interval_seconds + ' s; surface image every ' + modeConfig.surface_photo_interval_seconds / 60 + ' min. Demo chart remains historical 30-minute data.'
+      : 'Pilot target: sensor sample every ' + modeConfig.sensor_interval_seconds / 60 + ' min; ' + modeConfig.surface_photos_per_day + ' surface photos daily; queue until connected. Demo chart remains historical 30-minute data.';
     var labels = t.readings.map(function (r) { return r.timestamp.slice(5, 16).replace('T', ' '); });
+    var latest = t.readings[t.readings.length - 1];
+    var stale = Date.now() - Date.parse(latest.timestamp) > modeConfig.sensor_interval_seconds * 2000;
+    var sensorQuality = latest.sensor_fault_flag ? 'Flagged' : (stale ? 'Stale historical sample' : 'Synthetic demo sample');
+    var moistureLabel = stale ? 'Last recorded soil-probe reading' : 'Soil probe';
+    var moistureValue = fmtNum(latest.soil_moisture_15cm_pct_vwc) + '% VWC' + (stale ? ' · stale' : '');
+    var camera = t.camera_observation;
+    document.getElementById('telemetry-status').innerHTML =
+      '<div class="telemetry-status-row"><span>' + moistureLabel + '</span><strong>' + moistureValue + '</strong></div>' +
+      '<div class="telemetry-status-row"><span>Sensor source</span><strong>' + escapeHtml(t.source) + '</strong></div>' +
+      '<div class="telemetry-status-row"><span>Sensor observed at</span><strong>' + escapeHtml(latest.timestamp.replace('T', ' ').replace('Z', ' UTC')) + '</strong></div>' +
+      '<div class="telemetry-status-row"><span>Sensor quality</span><strong>' + sensorQuality + ' · not live</strong></div>' +
+      '<div class="telemetry-status-row"><span>Sensor upload time</span><strong>Not recorded in demo</strong></div>' +
+      '<div class="telemetry-status-row"><span>Pump status</span><strong>' + (latest.pump_state ? 'On' : 'Off') + (stale ? ' · stale' : '') + ' · read-only synthetic sample</strong></div>' +
+      '<div class="telemetry-status-row"><span>Camera source</span><strong>' + escapeHtml(camera.source) + '</strong></div>' +
+      '<div class="telemetry-status-row"><span>Camera observation</span><strong>' + escapeHtml(camera.quality.status) + ' · no capture time</strong></div>';
 
     if (typeof Chart === 'undefined') {
       document.getElementById('chart-moisture-flow').parentElement.innerHTML =
         '<p class="muted">Chart.js failed to load from the CDN — telemetry chart unavailable offline.</p>';
-      document.getElementById('chart-temp-battery').parentElement.innerHTML =
+      document.getElementById('chart-microclimate').parentElement.innerHTML =
         '<p class="muted">Chart.js failed to load from the CDN — telemetry chart unavailable offline.</p>';
       return;
     }
@@ -830,8 +1042,7 @@
       data: {
         labels: labels,
         datasets: [
-          { label: '15cm VWC%', data: t.readings.map(function (r) { return r.soil_moisture_15cm_pct_vwc; }), borderColor: '#235c3a', backgroundColor: 'transparent', yAxisID: 'y', pointRadius: 0, tension: 0.15, borderWidth: 2 },
-          { label: '40cm VWC%', data: t.readings.map(function (r) { return r.soil_moisture_40cm_pct_vwc; }), borderColor: '#397a50', backgroundColor: 'transparent', yAxisID: 'y', pointRadius: 0, tension: 0.15, borderDash: [4, 3] },
+          { label: 'Root-zone moisture (% VWC)', data: t.readings.map(function (r) { return r.soil_moisture_15cm_pct_vwc; }), borderColor: '#235c3a', backgroundColor: 'transparent', yAxisID: 'y', pointRadius: 0, tension: 0.15, borderWidth: 2 },
           { label: 'Flow (L/min)', data: t.readings.map(function (r) { return r.flow_lpm; }), borderColor: '#315b78', backgroundColor: 'rgba(49,91,120,0.12)', yAxisID: 'y1', pointRadius: 0, fill: true, tension: 0.1 }
         ]
       },
@@ -846,14 +1057,14 @@
       }
     });
 
-    charts.tempBattery = new Chart(document.getElementById('chart-temp-battery').getContext('2d'), {
+    charts.microclimate = new Chart(document.getElementById('chart-microclimate').getContext('2d'), {
       type: 'line',
       data: {
         labels: labels,
         datasets: [
           { label: 'Air temp (°C)', data: t.readings.map(function (r) { return r.air_temp_c; }), borderColor: '#d9a441', backgroundColor: 'transparent', yAxisID: 'y', pointRadius: 0, tension: 0.15, borderWidth: 2 },
           { label: 'Humidity (%)', data: t.readings.map(function (r) { return r.air_humidity_pct; }), borderColor: '#315b78', backgroundColor: 'transparent', yAxisID: 'y', pointRadius: 0, tension: 0.15, borderDash: [4, 3] },
-          { label: 'Battery (V)', data: t.readings.map(function (r) { return r.battery_v; }), borderColor: '#9d3f35', backgroundColor: 'transparent', yAxisID: 'y1', pointRadius: 0, tension: 0.1 }
+          { label: 'Pump state (0/1)', data: t.readings.map(function (r) { return r.pump_state; }), borderColor: '#9d3f35', backgroundColor: 'transparent', yAxisID: 'y1', pointRadius: 0, tension: 0.1 }
         ]
       },
       options: {
@@ -861,174 +1072,16 @@
         scales: {
           x: { ticks: { maxTicksLimit: 10, font: { size: 10 } } },
           y: { position: 'left', title: { display: true, text: '°C / %' } },
-          y1: { position: 'right', title: { display: true, text: 'Volts' }, grid: { drawOnChartArea: false }, suggestedMin: 3.6, suggestedMax: 4.3 }
+          y1: { position: 'right', title: { display: true, text: 'Pump state' }, grid: { drawOnChartArea: false }, min: 0, max: 1 }
         },
         plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } }
       }
     });
   }
 
-  function renderGuardrails() {
-    els.guardrailRow.innerHTML = GUARDRAILS.map(function (g) {
-      return '<span class="guardrail-chip" id="guardrail-' + g.id + '"><span class="dot"></span>' + escapeHtml(g.label) + '</span>';
-    }).join('');
-  }
-
-  function setGuardrailState(id, guardState, text) {
-    var el = document.getElementById('guardrail-' + id);
-    if (!el) return;
-    el.className = 'guardrail-chip' + (guardState ? ' state-' + guardState : '');
-    var fallbackLabel = GUARDRAILS.find(function (g) { return g.id === id; }).label;
-    el.innerHTML = '<span class="dot"></span>' + escapeHtml(text || fallbackLabel);
-  }
-
-  function resetCycleVisuals() {
-    renderGuardrails();
-    els.valveDot.classList.remove('open');
-    els.valveLabel.textContent = 'Valve closed';
-    setActiveStep(null);
-  }
-
-  function setActiveStep(id) {
-    ['sense', 'decide', 'act', 'verify'].forEach(function (s) {
-      var el = document.getElementById('step-' + s);
-      if (el) el.classList.toggle('active', s === id);
-    });
-  }
-
-  function wait(ms) {
-    return new Promise(function (resolve) { setTimeout(resolve, ms); });
-  }
-
-  function initCycleControls() {
-    els.btnRunCycle.addEventListener('click', runCycle);
-  }
-
-  function runCycle() {
-    if (state._cycleRunning) return;
-    state._cycleRunning = true;
-    els.btnRunCycle.disabled = true;
-    resetCycleVisuals();
-
-    var t = window.FS_DATA.telemetry;
-    var readings = t.readings;
-    var faultWindow = t.annotations.sensor_fault_window;
-    var irrigationEvent = t.annotations.irrigation_event;
-    var manualOverride = els.inputManualOverride.checked;
-
-    var faultReadings = readings.slice(faultWindow.start_index, faultWindow.start_index + faultWindow.length_steps);
-    var preEventReading = readings[irrigationEvent.start_index - 1];
-    var postEventReading = readings[irrigationEvent.start_index + 1];
-
-    var logHtml = [];
-    els.cycleLog.innerHTML = '';
-    function log(html) {
-      logHtml.push('<p>' + html + '</p>');
-      els.cycleLog.innerHTML = logHtml.join('');
-      els.cycleLog.scrollTop = els.cycleLog.scrollHeight;
-    }
-
-    (function runSequence() {
-      setActiveStep('sense');
-      setGuardrailState('sensor-quality', 'checking', 'Sensor-quality flag: scanning…');
-      log('<strong>Sense —</strong> scanning telemetry history for probe faults…');
-
-      return wait(800)
-        .then(function () {
-          setGuardrailState('sensor-quality', 'tripped', 'Sensor-quality flag: TRIPPED');
-          log('<strong>Fault detected:</strong> 15cm probe held flat at ' + faultReadings[0].soil_moisture_15cm_pct_vwc.toFixed(1) +
-            '% for ' + faultReadings.length + ' consecutive readings (index ' + faultWindow.start_index + '–' +
-            (faultWindow.start_index + faultWindow.length_steps - 1) +
-            ') — physically implausible. Falling back to the last known-good reading.');
-          return wait(1200);
-        })
-        .then(function () {
-          setGuardrailState('sensor-quality', 'ok', 'Sensor-quality flag: fallback applied');
-          log('<strong>Current reading (last known-good):</strong> 15cm = ' + preEventReading.soil_moisture_15cm_pct_vwc.toFixed(1) +
-            '% VWC, 40cm = ' + preEventReading.soil_moisture_40cm_pct_vwc.toFixed(1) + '% VWC at ' + preEventReading.timestamp + '.');
-          return wait(900);
-        })
-        .then(function () {
-          setActiveStep('decide');
-          var belowThreshold = preEventReading.soil_moisture_15cm_pct_vwc < CROP_MOISTURE_THRESHOLD;
-          var rainLow = true;
-          var dailyCapOk = true;
-          log('<strong>Decide —</strong> soil_moisture (' + preEventReading.soil_moisture_15cm_pct_vwc.toFixed(1) +
-            '%) &lt; threshold (' + CROP_MOISTURE_THRESHOLD + '%): <strong>' + belowThreshold +
-            '</strong>; rain_probability_next_6h low: <strong>' + rainLow +
-            '</strong> (Below-average GEOGLAM outlook); daily_water_limit not exceeded: <strong>' + dailyCapOk + '</strong>.');
-
-          if (manualOverride) {
-            setGuardrailState('manual-override', 'tripped', 'Manual override: ACTIVE');
-            log('<strong>Manual override is active</strong> — automatic irrigation is halted regardless of the rule outcome.');
-          } else {
-            setGuardrailState('manual-override', 'ok', 'Manual override: off (auto mode)');
-          }
-
-          var willAct = belowThreshold && rainLow && dailyCapOk && !manualOverride;
-          return wait(1200).then(function () {
-            if (willAct) {
-              log('Rule result: <strong>THEN open valve for ' + MAX_RUNTIME_MIN + ' minutes</strong> (capped at the configured max runtime).');
-            } else {
-              log('Rule result: <strong>ELSE send alert / wait</strong>' +
-                (manualOverride ? ' — manual override takes priority over the automatic rule.' : ' — conditions for irrigation are not met.'));
-            }
-            return wait(700).then(function () { return willAct; });
-          });
-        })
-        .then(function (willAct) {
-          setActiveStep('act');
-          setGuardrailState('offline-rule', 'ok', 'Offline local rule: LoRa online');
-
-          if (!willAct) {
-            els.valveDot.classList.remove('open');
-            els.valveLabel.textContent = 'Valve closed — alert sent, waiting';
-            setGuardrailState('max-runtime', 'ok', 'Max runtime: n/a (valve not opened)');
-            setGuardrailState('no-flow-alert', 'ok', 'No-flow alert: n/a (valve not opened)');
-            log('<strong>Act —</strong> valve stays closed. An alert is queued for the farmer instead.');
-            return wait(800).then(function () { return false; });
-          }
-
-          els.valveDot.classList.add('open');
-          els.valveLabel.textContent = 'Valve open — targeting ' + MAX_RUNTIME_MIN + ' minutes';
-          setGuardrailState('max-runtime', 'checking', 'Max runtime: 0 / ' + MAX_RUNTIME_MIN + ' min');
-          log('<strong>Act —</strong> opening the valve. Flow ramping to ' + postEventReading.flow_lpm.toFixed(1) + ' L/min.');
-          return wait(1300).then(function () { return true; });
-        })
-        .then(function (didAct) {
-          if (!didAct) {
-            setActiveStep(null);
-            state._cycleRunning = false;
-            els.btnRunCycle.disabled = false;
-            return;
-          }
-          setGuardrailState('max-runtime', 'ok', 'Max runtime: within cap (' + MAX_RUNTIME_MIN + ' min)');
-          setActiveStep('verify');
-          setGuardrailState('no-flow-alert', 'checking', 'No-flow alert: monitoring…');
-          log('<strong>Verify —</strong> checking the Hall-effect flow meter for real flow…');
-
-          return wait(1100).then(function () {
-            setGuardrailState('no-flow-alert', 'ok', 'No-flow alert: flow confirmed');
-            log('<strong>Flow confirmed:</strong> ' + postEventReading.flow_lpm.toFixed(1) + ' L/min sustained — not a stuck valve or dry line.');
-            log('<strong>Moisture recovering:</strong> 15cm VWC ' + preEventReading.soil_moisture_15cm_pct_vwc.toFixed(1) +
-              '% → ' + postEventReading.soil_moisture_15cm_pct_vwc.toFixed(1) + '% after irrigation.');
-            return wait(1200);
-          }).then(function () {
-            els.valveDot.classList.remove('open');
-            els.valveLabel.textContent = 'Valve closed — cycle complete';
-            log('<strong>Cycle complete.</strong> Valve closed automatically once the target volume was delivered.');
-            setActiveStep(null);
-            state._cycleRunning = false;
-            els.btnRunCycle.disabled = false;
-          });
-        })
-        .catch(function (err) {
-          log('<strong>Cycle error:</strong> ' + escapeHtml(String(err)));
-          setActiveStep(null);
-          state._cycleRunning = false;
-          els.btnRunCycle.disabled = false;
-        });
-    })();
+  function resetCharts() {
+    Object.keys(charts).forEach(function (key) { if (charts[key]) charts[key].destroy(); });
+    charts = {};
   }
 
   // =========================================================================
@@ -1048,6 +1101,7 @@
     renderFieldSummary(fieldState);
     renderFieldState(fieldState, data);
     renderScenarios(scenarios, data);
+    renderStressLab(data);
     renderActionPlan(scenarios, fieldState, data);
   }
 
@@ -1067,8 +1121,8 @@
     wirePayloadModal();
     wireScenarioSliderDelegation();
     initMap();
-    renderGuardrails();
-    initCycleControls();
+    wireStressLab();
+    resetCharts();
     renderTelemetryCharts();
 
     window.addEventListener('fs:datachange', onDataChange);

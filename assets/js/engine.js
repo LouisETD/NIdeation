@@ -3,9 +3,8 @@
 // FieldShift — Decision Engine.
 //
 // Pure, deterministic, synchronous scoring logic. NO DOM access, NO fetch,
-// NO LLM calls anywhere in this file — that is a hard architectural rule for
-// this project (see problem.html: "Don't feed raw data straight to an LLM to
-// decide the crop"). Everything here is plain arithmetic over the data
+// The engine uses deterministic gates and transparent arithmetic. Everything
+// here operates over the data
 // exposed on window.FS_DATA (see data/*.js) plus a runtime `inputs` object.
 //
 // Every tunable number below is a named constant with a comment explaining
@@ -59,6 +58,7 @@
     data = data || (window.FS.data ? window.FS.data.getAll() : window.FS_DATA);
     const fs = data.field_state;
     const farmerInput = Object.assign({}, fs.farmer_input, inputs || {});
+    if (farmerInput.water_budget_mm === undefined) farmerInput.water_budget_mm = 0;
     return {
       request_metadata: fs.request_metadata,
       farmer_input: farmerInput,
@@ -82,7 +82,7 @@
     });
   }
 
-  function checkGates(cropDef, farmer, fieldState, data) {
+  function checkGates(cropDef, farmer, fieldState, data, stress) {
     const failures = [];
 
     // --- Gate 1: soil pH outside the crop's tolerable band ---------------
@@ -110,29 +110,17 @@
       );
     }
 
-    // --- Gate 4: water requirement far exceeds irrigation capacity under -
-    //             a below-average rainfall outlook. This is a HARD safety
-    //             net, deliberately set loose (3x effective supply) so it
-    //             only trips for genuinely impossible combinations — the
-    //             ordinary "rice on rainfed under a dry outlook" case is
-    //             still scoreable (and scores poorly) rather than gated out,
-    //             matching the calibration target (scenario A is scored,
-    //             not marked infeasible).
-    const irr = IRRIGATION[farmer.irrigation_type] || IRRIGATION.Rainfed;
-    if (fieldState.agrometeorological_context.precipitation_outlook === 'Below-average') {
-      const hardCapacity = irr.capacity_mm * irr.efficiency * WATER_GATE_MULTIPLIER;
-      if (cropDef.water_requirement_mm > hardCapacity) {
-        failures.push(
-          cropDef.name + "'s water requirement (" + cropDef.water_requirement_mm +
-          'mm) far exceeds ' + farmer.irrigation_type + ' capacity under a below-average rainfall outlook.'
-        );
-      }
+    const waterAvailable = stress.rain_mm + stress.water_budget_mm;
+    const adjustedDemand = cropDef.water_requirement_mm * stress.water_demand_multiplier;
+    if (adjustedDemand > waterAvailable) {
+      failures.push(
+        cropDef.name + ' needs ' + Math.round(adjustedDemand) + ' mm under this scenario; ' +
+        Math.round(waterAvailable) + ' mm is available from rainfall and irrigation.'
+      );
     }
 
     return failures;
   }
-  const WATER_GATE_MULTIPLIER = 3; // loose hard-infeasibility safety net, see Gate 4 comment above
-
   // =========================================================================
   // 3. SUB-SCORE 1 — WATER DEMAND SUITABILITY
   // =========================================================================
@@ -431,19 +419,20 @@
   // (mostly price-volatility-driven) percentage adjustments around the
   // expected figure.
 
-  const YIELD_CLIMATE_FLOOR = 0.70; // worst-case yield realization fraction at climate_resilience = 0
-  const YIELD_CLIMATE_SPAN = 0.30;  // additional fraction unlocked at climate_resilience = 100
-
   const RISK_DROUGHT_DOWNSIDE_MAX = 0.25;      // max downside fraction from drought sensitivity
   const RISK_PRICE_VOL_MAX = 0.20;             // max swing fraction from market price volatility
   const RISK_DATA_UNCERTAINTY_MAX = 0.15;      // max additional downside fraction from low data confidence
   const RISK_PRICE_VOL_UPSIDE_SHARE = 0.60;    // share of the price-volatility swing that can also go up
   const RISK_DATA_UNCERTAINTY_UPSIDE_SHARE = 0.30;
 
-  function computeEconomics(cropDef, farmer, climateResilienceScore, confidenceScore) {
-    const yieldAdj = YIELD_CLIMATE_FLOOR + YIELD_CLIMATE_SPAN * (climateResilienceScore / 100);
-    const predictedYield = cropDef.base_yield_t_ha * yieldAdj; // t/ha
-    const revenue = predictedYield * 1000 * cropDef.farm_gate_price_idr_per_kg; // IDR/ha
+  function computeEconomics(cropDef, confidenceScore, stress) {
+    stress = stress || {};
+    const priceChange = Number(stress.price_change_pct) || 0;
+    const yieldChange = Number(stress.yield_change_pct) || 0;
+    const riskWeight = stress.risk_weight === undefined ? 0.5 : clamp(Number(stress.risk_weight), 0, 1);
+    const predictedYield = cropDef.base_yield_t_ha * (1 + yieldChange / 100); // t/ha; yield changes only from explicit user assumption
+    const price = cropDef.farm_gate_price_idr_per_kg * (1 + priceChange / 100);
+    const revenue = predictedYield * 1000 * price; // IDR/ha
     const cost = cropDef.variable_cost_idr_per_ha;
     const expected = revenue - cost;
 
@@ -456,10 +445,15 @@
 
     const low = expected * (1 - downsidePct);
     const high = expected * (1 + upsidePct);
+    const downsideRevenue = revenue * 0.80 * 0.85;
+    const downsideCost = cost * 1.10;
+    const downsideMargin = downsideRevenue - downsideCost;
+    const riskReserve = riskWeight * Math.max(0, expected - downsideMargin);
+    const riskAdjustedMargin = expected - riskReserve;
     const breakEvenPrice = cost / (predictedYield * 1000);
 
     function priceSensitivity(deltaPct) {
-      const adjPrice = cropDef.farm_gate_price_idr_per_kg * (1 + deltaPct / 100);
+      const adjPrice = price * (1 + deltaPct / 100);
       const rev2 = predictedYield * 1000 * adjPrice;
       return Math.round(rev2 - cost);
     }
@@ -471,6 +465,12 @@
         expected: Math.round(expected),
         high: Math.round(high)
       },
+      downside_margin_idr_per_ha: Math.round(downsideMargin),
+      risk_weight: riskWeight,
+      risk_reserve_idr_per_ha: Math.round(riskReserve),
+      risk_adjusted_margin_idr_per_ha: Math.round(riskAdjustedMargin),
+      applied_price_change_pct: priceChange,
+      applied_yield_change_pct: yieldChange,
       break_even_price_idr_per_kg: Math.round(breakEvenPrice),
       priceSensitivity: priceSensitivity
     };
@@ -566,9 +566,10 @@
     return Object.keys(cropsObj).map(function (k) { return Object.assign({ key: k }, cropsObj[k]); });
   }
 
-  function scoreScenario(cropDef, previousCropKey, fieldState, data, allCropDefs) {
+  function scoreScenario(cropDef, previousCropKey, fieldState, data, allCropDefs, stress) {
+    stress = Object.assign({ rain_mm: 480, water_budget_mm: 600, water_demand_multiplier: 1, price_change_pct: 0, yield_change_pct: 0, risk_weight: 0.5 }, stress || {});
     const farmer = fieldState.farmer_input;
-    const gateFailures = checkGates(cropDef, farmer, fieldState, data);
+    const gateFailures = checkGates(cropDef, farmer, fieldState, data, stress);
 
     if (gateFailures.length) {
       return {
@@ -601,7 +602,7 @@
 
     const verdict = verdictFromTotal(total);
     const confidence = computeConfidence(fieldState, farmer, data);
-    const economics = computeEconomics(cropDef, farmer, climate, confidence.score);
+    const economics = computeEconomics(cropDef, confidence.score, stress);
     const tradeOff = tradeOffAnalysis(cropDef, previousCropKey, farmer, fieldState);
 
     return {
@@ -611,17 +612,16 @@
       total: Math.round(total * 10) / 10,
       verdict: verdict,
       economics: economics,
+      water_required_mm: Math.round(cropDef.water_requirement_mm * stress.water_demand_multiplier),
+      water_available_mm: stress.rain_mm + stress.water_budget_mm,
       confidence: confidence,
       trade_off_analysis: tradeOff
     };
   }
 
-  // Scenario ordering: scenario A is ALWAYS "repeat the previous crop"
-  // (the farmer's do-nothing baseline). Every other candidate crop is then
-  // scored and sorted by descending weighted total, and assigned B, C, D...
-  // in that rank order. This is what reproduces the documented calibration
-  // IDs (A = Rice-Rice baseline, B = Soybean as the top-ranked rotation,
-  // C = Maize as the second-ranked rotation) without hardcoding crop names.
+  // Include the previous crop as a baseline option. Feasible options sort by
+  // risk-adjusted margin; infeasible options follow by fit score. IDs indicate
+  // rank and do not identify a fixed crop.
   //
   // The candidate pool itself is deliberately restricted to
   // MVP_SCENARIO_CROP_KEYS rather than the full crop catalog: problem.html's
@@ -635,31 +635,116 @@
   const SCENARIO_IDS = 'ABCDEFGHIJ';
   const MVP_SCENARIO_CROP_KEYS = ['rice', 'maize', 'soybean'];
 
-  function listScenarios(inputs, data) {
+  const STRESS_PRESETS = {
+    normal: { label: 'Normal season', rain_mm: 600, water_budget_factor: 1, water_demand_multiplier: 1, precipitation_outlook: 'Average', temperature_outlook: 'Average' },
+    dry: { label: 'Reduced rainfall', rain_mm: 264, water_budget_factor: 1, water_demand_multiplier: 1, precipitation_outlook: 'Below-average', temperature_outlook: 'Average' },
+    limited: { label: 'Limited irrigation', rain_mm: 480, water_budget_factor: 0.5, water_demand_multiplier: 1, precipitation_outlook: 'Average', temperature_outlook: 'Average' },
+    hot_dry: { label: 'Hot and dry', rain_mm: 384, water_budget_factor: 1, water_demand_multiplier: 1.12, precipitation_outlook: 'Below-average', temperature_outlook: 'Above-average' }
+  };
+
+  const STRESS_LAB_PRESETS = {
+    normal: { label: 'Normal', rainfall_pct: 100, irrigation_pct: 100, temperature_c: 0 },
+    dry: { label: 'Rainfall drop', rainfall_pct: 55, irrigation_pct: 100, temperature_c: 0 },
+    limited: { label: 'Limited irrigation', rainfall_pct: 100, irrigation_pct: 50, temperature_c: 0 },
+    hot_dry: { label: 'Hot and dry', rainfall_pct: 80, irrigation_pct: 70, temperature_c: 2.5 }
+  };
+
+  // FarmShift-style scenario sandbox. Outputs are illustrative indices and
+  // qualitative labels; this function never calculates money or a yield forecast.
+  function simulatePlantStress(cropDef, input) {
+    if (!cropDef) throw new Error('A crop definition is required for the stress simulation.');
+    input = input || {};
+    function bounded(value, fallback, min, max) {
+      const numeric = Number(value);
+      return clamp(Number.isFinite(numeric) ? numeric : fallback, min, max);
+    }
+    const week = Math.round(bounded(input.week, 7, 1, 12));
+    const rainfallPct = bounded(input.rainfall_pct, 100, 0, 120);
+    const irrigationPct = bounded(input.irrigation_pct, 100, 0, 120);
+    const temperatureC = bounded(input.temperature_c, 0, 0, 6);
+    const priceChangePct = bounded(input.price_change_pct, 0, -50, 30);
+    const harvestChangePct = bounded(input.yield_change_pct, 0, -50, 30);
+    const droughtSensitivity = bounded(cropDef.drought_sensitivity, 0.5, 0, 1);
+    const heatTolerance = bounded(cropDef.heat_tolerance, 0.5, 0, 1);
+    const stageMultiplier = clamp(0.65 + 0.55 * (1 - Math.abs(week - 7) / 6), 0.65, 1.2);
+    const rainfallShortfall = Math.max(0, 100 - rainfallPct);
+    const irrigationShortfall = Math.max(0, 100 - irrigationPct);
+    const combinedWaterShortfallPct = (rainfallShortfall + irrigationShortfall) / 2;
+    const waterStressPct = clamp(
+      combinedWaterShortfallPct * (0.45 + 0.55 * droughtSensitivity) * stageMultiplier,
+      0,
+      100
+    );
+    const heatStressPct = clamp(
+      (temperatureC / 6) * 100 * (1 - heatTolerance) * stageMultiplier,
+      0,
+      100
+    );
+    const riskIndex = Math.round(clamp(waterStressPct * 0.7 + heatStressPct * 0.3, 0, 100));
+    const waterReserveIndex = Math.round(clamp(100 - combinedWaterShortfallPct - temperatureC * 2, 0, 100));
+    const riskLabel = riskIndex < 20 ? 'Low' : riskIndex < 50 ? 'Moderate' : 'High';
+    const reserveLabel = waterReserveIndex >= 85 ? 'Buffered' : waterReserveIndex >= 65 ? 'Tight' : 'Low';
+    const marketContext = priceChangePct <= -20 ? 'Price headwind' : priceChangePct < 0 ? 'Softer price assumption' : priceChangePct > 0 ? 'Price tailwind' : 'Price unchanged';
+    const harvestContext = harvestChangePct <= -10 ? 'Lower harvest assumption' : harvestChangePct >= 10 ? 'Higher harvest assumption' : 'Harvest near baseline';
+    const stageLabel = week <= 3 ? 'Establishment' : week <= 6 ? 'Canopy growth' : week <= 9 ? 'Reproductive stage' : 'Grain fill and harvest';
+
+    return {
+      week: week,
+      stage: stageLabel,
+      stage_multiplier: stageMultiplier,
+      rainfall_pct: Math.round(rainfallPct),
+      irrigation_pct: Math.round(irrigationPct),
+      temperature_c: temperatureC,
+      water_stress_pct: Math.round(waterStressPct),
+      heat_stress_pct: Math.round(heatStressPct),
+      risk_index: riskIndex,
+      risk_label: riskLabel,
+      plant_condition_index: 100 - riskIndex,
+      water_reserve_index: waterReserveIndex,
+      reserve_label: reserveLabel,
+      price_change_pct: Math.round(priceChangePct),
+      profitability_context: marketContext,
+      harvest_change_pct: Math.round(harvestChangePct),
+      harvest_context: harvestContext,
+      leading_driver: waterStressPct >= heatStressPct ? 'Water supply stress' : 'Heat stress'
+    };
+  }
+
+  function listScenarios(inputs, data, stressInput) {
     data = data || (window.FS.data ? window.FS.data.getAll() : window.FS_DATA);
     const fieldState = computeFieldState(inputs, data);
     const farmer = fieldState.farmer_input;
+    const selectedStress = Object.assign({}, STRESS_PRESETS.normal, stressInput || {});
+    selectedStress.water_budget_mm = Math.max(0, Number(selectedStress.water_budget_mm === undefined ? farmer.water_budget_mm : selectedStress.water_budget_mm) || 0) *
+      (selectedStress.water_budget_factor === undefined ? 1 : selectedStress.water_budget_factor);
+    selectedStress.water_demand_multiplier = Number(selectedStress.water_demand_multiplier) || 1;
+    selectedStress.rain_mm = Math.max(0, Number(selectedStress.rain_mm) || 0);
+    fieldState.agrometeorological_context = Object.assign({}, fieldState.agrometeorological_context, {
+      precipitation_outlook: selectedStress.precipitation_outlook,
+      temperature_outlook: selectedStress.temperature_outlook
+    });
     const cropsObj = data.crops.crops;
     const allCropDefs = allCropDefsFrom(cropsObj);
     const previousCropKey = cropKeyForName(cropsObj, farmer.previous_crop);
 
     const candidates = allCropDefs.filter(function (c) {
-      return c.key !== previousCropKey && MVP_SCENARIO_CROP_KEYS.indexOf(c.key) !== -1;
+      return MVP_SCENARIO_CROP_KEYS.indexOf(c.key) !== -1;
     });
     const scored = candidates.map(function (c) {
-      return { crop: c, result: scoreScenario(c, previousCropKey, fieldState, data, allCropDefs) };
+      return { crop: c, result: scoreScenario(c, previousCropKey, fieldState, data, allCropDefs, selectedStress) };
     });
-    scored.sort(function (a, b) { return b.result.total - a.result.total; });
+    scored.sort(function (a, b) {
+      if (a.result.feasible !== b.result.feasible) return a.result.feasible ? -1 : 1;
+      if (a.result.feasible) return b.result.economics.risk_adjusted_margin_idr_per_ha - a.result.economics.risk_adjusted_margin_idr_per_ha;
+      return b.result.total - a.result.total;
+    });
 
-    const orderedKeys = [];
-    if (previousCropKey) orderedKeys.push(previousCropKey);
-    scored.forEach(function (s) { orderedKeys.push(s.crop.key); });
-
-    return orderedKeys.map(function (key, i) {
-      const cropDef = Object.assign({ key: key }, cropsObj[key]);
-      const result = scoreScenario(cropDef, previousCropKey, fieldState, data, allCropDefs);
+    return scored.map(function (item, i) {
+      const cropDef = item.crop;
+      const result = item.result;
       return Object.assign(
-        { scenario_id: SCENARIO_IDS[i] || String(i + 1), rotation_plan: [farmer.previous_crop, cropDef.name] },
+        { scenario_id: SCENARIO_IDS[i] || String(i + 1), rotation_plan: [farmer.previous_crop, cropDef.name], stress: selectedStress,
+          verdict: result.feasible ? (i === 0 ? 'Risk-adjusted leader' : 'Feasible alternative') : result.verdict },
         result
       );
     });
@@ -752,6 +837,9 @@
     listScenarios: listScenarios,
     scoreScenario: scoreScenario,
     computeEconomics: computeEconomics,
+    stressPresets: STRESS_PRESETS,
+    stressLabPresets: STRESS_LAB_PRESETS,
+    simulatePlantStress: simulatePlantStress,
     computeConfidence: computeConfidence,
     buildPayload: buildPayload,
     selfCheck: selfCheck,
